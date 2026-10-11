@@ -3,7 +3,7 @@ import { Route, Routes } from 'react-router-dom';
 import MobileLayout from './components/MobileLayout';
 import AdminLayout from './components/AdminLayout';
 import NotFound from './pages/NotFound/NotFound';
-import OnboardingPage from './pages/onboarding';
+import LoginPage from './pages/login';
 import HomePage from './pages/home';
 import SchedulePage from './pages/schedule';
 import TasksPage from './pages/tasks';
@@ -17,7 +17,7 @@ import AdminPage from './pages/admin';
 const RoutesComponent = () => {
   return (
     <Routes>
-      <Route path="/onboarding" element={<OnboardingPage />} />
+      <Route path="/login" element={<LoginPage />} />
       <Route element={<MobileLayout />}>
         <Route index element={<HomePage />} />
         <Route path="schedule" element={<SchedulePage />} />

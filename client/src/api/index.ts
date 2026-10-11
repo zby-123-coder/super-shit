@@ -1,8 +1,12 @@
 import { logger } from '@lark-apaas/client-toolkit/logger';
 import { axiosForBackend } from '@lark-apaas/client-toolkit/utils/getAxiosForBackend';
+import { clearToken, getToken } from '@client/src/utils/auth-token';
 import type {
   AccountMeResponse,
   AdminOverview,
+  AuthResponse,
+  LoginRequest,
+  RegisterRequest,
   AdminUserListResponse,
   AdminUserDTO,
   AppProfileDTO,
@@ -38,19 +42,34 @@ interface RequestConfig {
 }
 
 async function request<T>(config: RequestConfig): Promise<T> {
+  const token = getToken();
   try {
     const response = await axiosForBackend({
       url: config.url,
       method: config.method,
       data: config.data,
       params: config.params,
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     });
     return response.data as T;
   } catch (error) {
+    const status = (error as { response?: { status?: number } }).response?.status;
+    if (status === 401) {
+      clearToken();
+    }
     logger.error(`请求失败：${config.url}`, error);
     throw error;
   }
 }
+
+export const authApi = {
+  register: (data: RegisterRequest): Promise<AuthResponse> =>
+    request({ url: '/api/auth/register', method: 'POST', data }),
+  login: (data: LoginRequest): Promise<AuthResponse> =>
+    request({ url: '/api/auth/login', method: 'POST', data }),
+  logout: (): Promise<{ success: boolean }> =>
+    request({ url: '/api/auth/logout', method: 'POST' }),
+};
 
 export const accountApi = {
   getMe: (): Promise<AccountMeResponse> =>

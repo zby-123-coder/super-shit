@@ -147,6 +147,42 @@ export class AccountService {
     return { profile, children, students, guardians };
   }
 
+  /** 老师是否带该学生（越权防护的统一入口） */
+  async canTeachStudent(
+    teacherUserId: string,
+    studentUserId: string,
+  ): Promise<boolean> {
+    const links = await this.db
+      .select()
+      .from(teachingLink)
+      .where(
+        and(
+          eq(teachingLink.teacherUserId, teacherUserId),
+          eq(teachingLink.studentUserId, studentUserId),
+        ),
+      )
+      .limit(1);
+    return links.length > 0;
+  }
+
+  /** 家长是否可查看该学生 */
+  async canViewStudent(
+    parentUserId: string,
+    studentUserId: string,
+  ): Promise<boolean> {
+    const links = await this.db
+      .select()
+      .from(guardianLink)
+      .where(
+        and(
+          eq(guardianLink.parentUserId, parentUserId),
+          eq(guardianLink.studentUserId, studentUserId),
+        ),
+      )
+      .limit(1);
+    return links.length > 0;
+  }
+
   async saveProfile(
     userId: string,
     payload: SaveProfileRequest,

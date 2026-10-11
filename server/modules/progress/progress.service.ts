@@ -45,6 +45,15 @@ export class ProgressService {
     if (!me || (me.role !== 'teacher' && me.role !== 'admin')) {
       throw new ForbiddenException('只有老师或管理员可以更新学习进度');
     }
+    if (me.role === 'teacher') {
+      const allowed = await this.accountService.canTeachStudent(
+        userId,
+        dto.studentUserId,
+      );
+      if (!allowed) {
+        throw new ForbiddenException('该学生不在你的带班范围内');
+      }
+    }
     const percent = Math.max(0, Math.min(100, Math.round(dto.percent)));
     const existing: ProgressRow[] = await this.db
       .select()

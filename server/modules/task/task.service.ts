@@ -197,6 +197,15 @@ export class TaskService {
     if (!me || (me.role !== 'teacher' && me.role !== 'admin')) {
       throw new ForbiddenException('只有老师或管理员可以布置任务');
     }
+    if (me.role === 'teacher') {
+      const allowed = await this.accountService.canTeachStudent(
+        userId,
+        dto.studentUserId,
+      );
+      if (!allowed) {
+        throw new ForbiddenException('该学生不在你的带班范围内');
+      }
+    }
     const inserted: TaskRow[] = await this.db
       .insert(studyTask)
       .values({
@@ -304,6 +313,23 @@ export class TaskService {
       throw new ForbiddenException('打卡记录不存在');
     }
     const checkin = rows[0];
+    const taskRows0: TaskRow[] = await this.db
+      .select()
+      .from(studyTask)
+      .where(eq(studyTask.id, checkin.taskId))
+      .limit(1);
+    if (me.role === 'teacher' && taskRows0.length > 0) {
+      const isOwner = taskRows0[0].teacherUserId === userId;
+      const isMine = isOwner
+        ? true
+        : await this.accountService.canTeachStudent(
+            userId,
+            taskRows0[0].studentUserId,
+          );
+      if (!isMine) {
+        throw new ForbiddenException('只能批阅自己布置的任务');
+      }
+    }
     await this.db
       .update(taskCheckin)
       .set({

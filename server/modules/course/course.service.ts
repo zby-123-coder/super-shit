@@ -158,6 +158,15 @@ export class CourseService {
       throw new ForbiddenException('只有老师或管理员可以排课');
     }
     const teacherId = dto.teacherUserId || (me.role === 'teacher' ? userId : '');
+    if (me.role === 'teacher') {
+      const allowed = await this.accountService.canTeachStudent(
+        userId,
+        dto.studentUserId,
+      );
+      if (!allowed) {
+        throw new ForbiddenException('该学生不在你的带班范围内');
+      }
+    }
     const inserted: CourseRow[] = await this.db
       .insert(course)
       .values({
@@ -210,6 +219,26 @@ export class CourseService {
     if (!me || (me.role !== 'teacher' && me.role !== 'admin')) {
       throw new ForbiddenException('只有老师或管理员可以变更课程状态');
     }
+    const current: CourseRow[] = await this.db
+      .select()
+      .from(course)
+      .where(eq(course.id, courseId))
+      .limit(1);
+    if (current.length === 0) {
+      throw new ForbiddenException('课程不存在');
+    }
+    if (me.role === 'teacher') {
+      const isOwner = current[0].teacherUserId === userId;
+      const isMine = isOwner
+        ? true
+        : await this.accountService.canTeachStudent(
+            userId,
+            current[0].studentUserId,
+          );
+      if (!isMine) {
+        throw new ForbiddenException('只能变更自己授课课程的状态');
+      }
+    }
     const updated: CourseRow[] = await this.db
       .update(course)
       .set({
@@ -255,6 +284,18 @@ export class CourseService {
       throw new ForbiddenException('课程不存在');
     }
     const target = rows[0];
+    if (me.role === 'teacher') {
+      const isOwner = target.teacherUserId === userId;
+      const isMine = isOwner
+        ? true
+        : await this.accountService.canTeachStudent(
+            userId,
+            target.studentUserId,
+          );
+      if (!isMine) {
+        throw new ForbiddenException('只能对自己授课的课程消课');
+      }
+    }
     if (target.status !== 'done') {
       await this.db
         .update(course)

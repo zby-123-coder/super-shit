@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { NavLink, Navigate, Outlet } from 'react-router-dom';
 import {
   BookOpen,
@@ -7,6 +8,7 @@ import {
   User,
 } from 'lucide-react';
 import { useAccount } from '@client/src/hooks/useAccount';
+import { getToken, UNAUTHORIZED_EVENT } from '@client/src/utils/auth-token';
 
 const TABS = [
   { to: '/', label: '首页', icon: Home, end: true },
@@ -18,9 +20,20 @@ const TABS = [
 
 const MobileLayout = () => {
   const { data, loading } = useAccount();
+  const [signedIn, setSignedIn] = useState<boolean>(!!getToken());
+
+  useEffect(() => {
+    const onExpired = (): void => setSignedIn(false);
+    window.addEventListener(UNAUTHORIZED_EVENT, onExpired);
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, onExpired);
+  }, []);
+
+  if (!signedIn) {
+    return <Navigate to="/login" replace />;
+  }
 
   if (!loading && !data?.profile) {
-    return <Navigate to="/onboarding" replace />;
+    return <Navigate to="/login" replace />;
   }
 
   return (

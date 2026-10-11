@@ -7,7 +7,6 @@ import {
   Post,
   Req,
 } from '@nestjs/common';
-import { NeedLogin } from '@lark-apaas/fullstack-nestjs-core';
 import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 import type { Request } from 'express';
 import type {
@@ -80,7 +79,6 @@ export class AdminController {
     return this.adminService.listUsers(userId);
   }
 
-  @NeedLogin()
   @Patch('users/:id')
   async updateUser(
     @Req() req: Request,
@@ -97,7 +95,6 @@ export class AdminController {
     });
   }
 
-  @NeedLogin()
   @Post('assign')
   async assign(@Req() req: Request, @Body() dto: AssignDto) {
     const { userId } = req.userContext;

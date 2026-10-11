@@ -7,7 +7,6 @@ import {
   Post,
   Req,
 } from '@nestjs/common';
-import { NeedLogin } from '@lark-apaas/fullstack-nestjs-core';
 import {
   IsArray,
   IsIn,
@@ -92,7 +91,6 @@ export class TaskController {
     return this.taskService.pendingReviews(userId);
   }
 
-  @NeedLogin()
   @Post()
   async create(
     @Req() req: Request,
@@ -111,7 +109,6 @@ export class TaskController {
     );
   }
 
-  @NeedLogin()
   @Post(':id/checkin')
   async checkin(
     @Req() req: Request,
@@ -130,7 +127,6 @@ export class TaskController {
     );
   }
 
-  @NeedLogin()
   @Patch('checkin/:id/review')
   async review(
     @Req() req: Request,

@@ -9,7 +9,6 @@ import {
   Query,
   Req,
 } from '@nestjs/common';
-import { NeedLogin } from '@lark-apaas/fullstack-nestjs-core';
 import { IsIn, IsInt, IsOptional, IsString, MaxLength } from 'class-validator';
 import { Type } from 'class-transformer';
 import type { Request } from 'express';
@@ -130,7 +129,6 @@ export class CourseController {
     return target;
   }
 
-  @NeedLogin()
   @Post()
   async create(
     @Req() req: Request,
@@ -152,7 +150,6 @@ export class CourseController {
     );
   }
 
-  @NeedLogin()
   @Post('lessons/grant')
   async grant(@Req() req: Request, @Body() dto: GrantLessonDto) {
     const { userId } = req.userContext;
@@ -168,7 +165,6 @@ export class CourseController {
     return { success: true };
   }
 
-  @NeedLogin()
   @Patch(':id/status')
   async updateStatus(
     @Req() req: Request,
@@ -179,7 +175,6 @@ export class CourseController {
     return this.courseService.updateStatus(id, dto.status, userId, dto.remark);
   }
 
-  @NeedLogin()
   @Post(':id/consume')
   async consume(@Req() req: Request, @Param('id') id: string) {
     const { userId } = req.userContext;

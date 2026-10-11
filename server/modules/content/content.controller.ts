@@ -9,7 +9,6 @@ import {
   Query,
   Req,
 } from '@nestjs/common';
-import { NeedLogin } from '@lark-apaas/fullstack-nestjs-core';
 import { IsBoolean, IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 import { Type } from 'class-transformer';
 import type { Request } from 'express';
@@ -86,7 +85,6 @@ export class ContentController {
     return this.contentService.detail(id, userId);
   }
 
-  @NeedLogin()
   @Post()
   async create(
     @Req() req: Request,
@@ -106,7 +104,6 @@ export class ContentController {
     );
   }
 
-  @NeedLogin()
   @Patch(':id')
   async update(
     @Req() req: Request,
@@ -128,7 +125,6 @@ export class ContentController {
     );
   }
 
-  @NeedLogin()
   @Patch(':id/status')
   async setStatus(
     @Req() req: Request,
@@ -140,7 +136,6 @@ export class ContentController {
     return { success: true };
   }
 
-  @NeedLogin()
   @Delete(':id')
   async remove(@Req() req: Request, @Param('id') id: string) {
     const { userId } = req.userContext;
@@ -148,7 +143,6 @@ export class ContentController {
     return { success: true };
   }
 
-  @NeedLogin()
   @Post(':id/favorite')
   async toggleFavorite(@Req() req: Request, @Param('id') id: string) {
     const { userId } = req.userContext;

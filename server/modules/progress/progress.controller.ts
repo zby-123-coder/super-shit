@@ -7,7 +7,6 @@ import {
   Query,
   Req,
 } from '@nestjs/common';
-import { NeedLogin } from '@lark-apaas/fullstack-nestjs-core';
 import { IsInt, IsOptional, IsString, MaxLength } from 'class-validator';
 import { Type } from 'class-transformer';
 import type { Request } from 'express';
@@ -66,7 +65,6 @@ export class ProgressController {
     return this.progressService.list(target);
   }
 
-  @NeedLogin()
   @Post()
   async save(
     @Req() req: Request,

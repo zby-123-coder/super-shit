@@ -2,6 +2,29 @@
 
 export type UserRole = 'student' | 'parent' | 'teacher' | 'admin';
 
+export interface RegisterRequest {
+  loginName: string;
+  password: string;
+  role: UserRole;
+  name: string;
+  phone?: string;
+  grade?: string;
+  subjectTags?: string;
+}
+
+export interface LoginRequest {
+  loginName: string;
+  password: string;
+}
+
+export interface AuthResponse {
+  token: string;
+  userId: string;
+  role: UserRole;
+  name: string;
+  inviteCode: string;
+}
+
 export const USER_ROLE_LIST: UserRole[] = [
   'student',
   'parent',

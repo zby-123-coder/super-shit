@@ -3,10 +3,12 @@ import { ArrowLeft } from 'lucide-react';
 import { Button } from '@client/src/components/ui/button';
 import { useAccount } from '@client/src/hooks/useAccount';
 import { LoadingBlock } from '@client/src/components/PageShell';
+import { getToken } from '@client/src/utils/auth-token';
 
 const AdminLayout = () => {
   const { data, loading } = useAccount();
 
+  if (!getToken()) return <Navigate to="/login" replace />;
   if (loading) return <LoadingBlock />;
   if (data?.profile?.role !== 'admin') {
     return <Navigate to="/" replace />;

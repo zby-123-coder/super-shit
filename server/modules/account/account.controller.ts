@@ -7,7 +7,6 @@ import {
   Post,
   Req,
 } from '@nestjs/common';
-import { NeedLogin } from '@lark-apaas/fullstack-nestjs-core';
 import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 import type { Request } from 'express';
 import type {
@@ -63,7 +62,6 @@ export class AccountController {
     return this.accountService.getMe(userId);
   }
 
-  @NeedLogin()
   @Post('profile')
   async saveProfile(
     @Req() req: Request,
@@ -80,7 +78,6 @@ export class AccountController {
     });
   }
 
-  @NeedLogin()
   @Post('bind')
   async bind(@Req() req: Request, @Body() dto: BindByCodeDto) {
     const { userId } = req.userContext;
@@ -93,7 +90,6 @@ export class AccountController {
     return this.accountService.listBindings(userId);
   }
 
-  @NeedLogin()
   @Delete('bind/:id')
   async unbind(@Req() req: Request, @Param('id') id: string) {
     const { userId } = req.userContext;

@@ -15,8 +15,10 @@ import {
 } from '@client/src/components/ui/dialog';
 import { Input } from '@client/src/components/ui/input';
 import { EmptyBlock, LoadingBlock, PageHeader } from '@client/src/components/PageShell';
-import { accountApi, messageApi } from '@client/src/api';
+import { useNavigate } from 'react-router-dom';
+import { accountApi, authApi, messageApi } from '@client/src/api';
 import { refreshAccount, useAccount } from '@client/src/hooks/useAccount';
+import { clearToken } from '@client/src/utils/auth-token';
 import type { BindItemDTO, MessageDTO, UserRole } from '@shared/api.interface';
 
 const ROLE_LABEL: Record<UserRole, string> = {
@@ -28,6 +30,7 @@ const ROLE_LABEL: Record<UserRole, string> = {
 
 const MePage = () => {
   const { data, reload } = useAccount();
+  const navigate = useNavigate();
   const profile = data?.profile;
   const [bindings, setBindings] = useState<{
     children: BindItemDTO[];
@@ -154,6 +157,22 @@ const MePage = () => {
             </p>
           </CardContent>
         </Card>
+
+        <Button
+          variant="outline"
+          className="self-start"
+          onClick={async () => {
+            try {
+              await authApi.logout();
+            } catch (error) {
+              /* 会话已失效时直接清理本地 */
+            }
+            clearToken();
+            navigate('/login', { replace: true });
+          }}
+        >
+          退出登录
+        </Button>
 
         {profile.role === 'admin' ? (
           <Link

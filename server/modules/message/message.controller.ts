@@ -1,17 +1,18 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   Param,
   Patch,
   Post,
   Req,
 } from '@nestjs/common';
-import { NeedLogin } from '@lark-apaas/fullstack-nestjs-core';
 import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 import type { Request } from 'express';
 import type { BroadcastRequest, MessageListResponse } from '@shared/api.interface';
 import { MessageService } from './message.service';
+import { AccountService } from '../account/account.service';
 
 class BroadcastDto implements BroadcastRequest {
   @IsString()
@@ -29,7 +30,10 @@ class BroadcastDto implements BroadcastRequest {
 
 @Controller('api/message')
 export class MessageController {
-  constructor(private readonly messageService: MessageService) {}
+  constructor(
+    private readonly messageService: MessageService,
+    private readonly accountService: AccountService,
+  ) {}
 
   @Get()
   async list(@Req() req: Request): Promise<MessageListResponse> {
@@ -37,7 +41,6 @@ export class MessageController {
     return this.messageService.list(userId);
   }
 
-  @NeedLogin()
   @Patch(':id/read')
   async markRead(@Req() req: Request, @Param('id') id: string) {
     const { userId } = req.userContext;
@@ -45,7 +48,6 @@ export class MessageController {
     return { success: true };
   }
 
-  @NeedLogin()
   @Patch('read-all')
   async markAllRead(@Req() req: Request) {
     const { userId } = req.userContext;
@@ -53,9 +55,13 @@ export class MessageController {
     return { success: true };
   }
 
-  @NeedLogin()
   @Post('broadcast')
-  async broadcast(@Body() dto: BroadcastDto) {
+  async broadcast(@Req() req: Request, @Body() dto: BroadcastDto) {
+    const { userId } = req.userContext;
+    const me = await this.accountService.findProfile(userId);
+    if (!me || me.role !== 'admin') {
+      throw new ForbiddenException('只有管理员可以群发通知');
+    }
     const count = await this.messageService.broadcast({
       title: dto.title,
       content: dto.content,

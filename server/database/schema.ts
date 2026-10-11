@@ -386,6 +386,51 @@ export const appProfile = pgTable("app_profile", {
   uniqueIndex("uk_app_profile_invite").on(table.inviteCode),
 ]);
 
+/* 以下两张表由 scripts/auth-migration.sql 建立，将来在任意 Postgres 环境执行该脚本后
+   可用 `npm run gen:db-schema` 重新生成，届时以生成结果为准 */
+export const authCredential = pgTable("auth_credential", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: varchar("user_id", { length: 64 }).notNull().unique(),
+  loginName: varchar("login_name", { length: 64 }).notNull().unique(),
+  passwordHash: varchar("password_hash", { length: 255 }).notNull(),
+  // System field: Creation time (auto-filled, do not modify)
+  createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  // System field: Creator (auto-filled, do not modify)
+  createdBy: userProfile("_created_by").default(sql`CASE
+    WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
+  // System field: Update time (auto-filled, do not modify)
+  updatedAt: customTimestamptz("_updated_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  // System field: Updater (auto-filled, do not modify)
+  updatedBy: userProfile("_updated_by").default(sql`CASE
+    WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
+}, (table) => [
+  uniqueIndex("uk_auth_credential_user").on(table.userId),
+  uniqueIndex("uk_auth_credential_login").on(table.loginName),
+]);
+
+export const authSession = pgTable("auth_session", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: varchar("user_id", { length: 64 }).notNull(),
+  tokenHash: varchar("token_hash", { length: 64 }).notNull().unique(),
+  deviceLabel: varchar("device_label", { length: 255 }),
+  expiresAt: customTimestamptz("expires_at", { precision: 3 }).notNull(),
+  revokedAt: customTimestamptz("revoked_at", { precision: 3 }),
+  lastUsedAt: customTimestamptz("last_used_at", { precision: 3 }),
+  // System field: Creation time (auto-filled, do not modify)
+  createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  // System field: Creator (auto-filled, do not modify)
+  createdBy: userProfile("_created_by").default(sql`CASE
+    WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
+  // System field: Update time (auto-filled, do not modify)
+  updatedAt: customTimestamptz("_updated_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  // System field: Updater (auto-filled, do not modify)
+  updatedBy: userProfile("_updated_by").default(sql`CASE
+    WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
+}, (table) => [
+  uniqueIndex("uk_auth_session_token").on(table.tokenHash),
+  index("idx_auth_session_user").on(table.userId),
+]);
+
 // table aliases
 export const appProfileTable = appProfile;
 export const articleTable = article;

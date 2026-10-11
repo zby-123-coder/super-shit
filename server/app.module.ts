@@ -1,9 +1,11 @@
 import { APP_FILTER } from '@nestjs/core';
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { PlatformModule } from '@lark-apaas/fullstack-nestjs-core';
 
 import { GlobalExceptionFilter } from './common/filters/exception.filter';
 import { ViewModule } from './modules/view/view.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { AuthMiddleware } from './modules/auth/auth.middleware';
 import { AccountModule } from './modules/account/account.module';
 import { MessageModule } from './modules/message/message.module';
 import { CourseModule } from './modules/course/course.module';
@@ -18,6 +20,7 @@ import { AdminModule } from './modules/admin/admin.module';
     PlatformModule.forRoot(),
     // ====== @route-section: business-modules START ======
     // Place all business modules here.Do NOT add fallback modules here.
+    AuthModule,
     AccountModule,
     MessageModule,
     CourseModule,
@@ -38,4 +41,8 @@ import { AdminModule } from './modules/admin/admin.module';
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(AuthMiddleware).forRoutes('*');
+  }
+}
