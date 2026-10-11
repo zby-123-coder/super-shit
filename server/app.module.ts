@@ -4,6 +4,13 @@ import { PlatformModule } from '@lark-apaas/fullstack-nestjs-core';
 
 import { GlobalExceptionFilter } from './common/filters/exception.filter';
 import { ViewModule } from './modules/view/view.module';
+import { AccountModule } from './modules/account/account.module';
+import { MessageModule } from './modules/message/message.module';
+import { CourseModule } from './modules/course/course.module';
+import { TaskModule } from './modules/task/task.module';
+import { ProgressModule } from './modules/progress/progress.module';
+import { ContentModule } from './modules/content/content.module';
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
@@ -11,6 +18,13 @@ import { ViewModule } from './modules/view/view.module';
     PlatformModule.forRoot(),
     // ====== @route-section: business-modules START ======
     // Place all business modules here.Do NOT add fallback modules here.
+    AccountModule,
+    MessageModule,
+    CourseModule,
+    TaskModule,
+    ProgressModule,
+    ContentModule,
+    AdminModule,
     // ====== @route-section: business-modules END ======
 
     // ⚠️ @route-order: last
