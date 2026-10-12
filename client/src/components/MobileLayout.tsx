@@ -11,6 +11,7 @@ import {
 import { useAccount } from '@client/src/hooks/useAccount';
 import { getToken, UNAUTHORIZED_EVENT } from '@client/src/utils/auth-token';
 import DevFloatingSwitch from '@client/src/components/DevFloatingSwitch';
+import { isDevMode } from '@client/src/utils/dev-mode';
 
 const BASE_TABS = {
   student: [
@@ -51,10 +52,8 @@ const BASE_TABS = {
   ],
 } as const;
 
-/** 仅本地开发环境追加身份切换入口 */
-const isLocalDev =
-  typeof window !== 'undefined' &&
-  ['localhost', '127.0.0.1'].includes(window.location.hostname);
+/** 本地开发永久保留身份切换入口，开关见 utils/dev-mode.ts */
+const isLocalDev = isDevMode;
 
 const MobileLayout = () => {
   const { data, loading } = useAccount();
