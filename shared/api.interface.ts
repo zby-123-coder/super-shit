@@ -162,6 +162,8 @@ export interface LessonLedgerDTO {
   changeType: 'purchase' | 'consume' | 'adjust';
   remark: string;
   createdAt: string;
+  /** 家长/学生确认时间（消课双向确认） */
+  confirmedAt: string | null;
 }
 
 export interface LessonSummaryResponse {

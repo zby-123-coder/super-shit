@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import dayjs from 'dayjs';
 import { toast } from 'sonner';
 import { Card, CardContent } from '@client/src/components/ui/card';
+import { Button } from '@client/src/components/ui/button';
 import { Progress } from '@client/src/components/ui/progress';
 import {
   Select,
@@ -146,20 +147,47 @@ const LessonsPage = () => {
                     : ledger.changeType === 'purchase'
                       ? '课时发放'
                       : '手动调整'}
+                  {ledger.changeType === 'consume' && !ledger.confirmedAt ? (
+                    <span className="tag o ml-2">待确认</span>
+                  ) : null}
+                  {ledger.changeType === 'consume' && ledger.confirmedAt ? (
+                    <span className="tag g ml-2">已确认</span>
+                  ) : null}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {dayjs(ledger.createdAt).format('YYYY-MM-DD HH:mm')}
                   {ledger.remark ? ` · ${ledger.remark}` : ''}
                 </p>
               </div>
-              <span
-                className={`text-sm font-medium ${
-                  ledger.changeAmount > 0 ? 'text-success' : 'text-destructive'
-                }`}
-              >
-                {ledger.changeAmount > 0 ? '+' : ''}
-                {ledger.changeAmount}
-              </span>
+              <div className="flex items-center gap-2">
+                {ledger.changeType === 'consume' &&
+                !ledger.confirmedAt &&
+                (role === 'student' || role === 'parent') ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                      try {
+                        await courseApi.confirmLedger(ledger.id);
+                        toast.success('已确认本次消课');
+                        await load();
+                      } catch (error) {
+                        toast.error('确认失败，请重试');
+                      }
+                    }}
+                  >
+                    确认无误
+                  </Button>
+                ) : null}
+                <span
+                  className={`text-sm font-medium ${
+                    ledger.changeAmount > 0 ? 'text-success' : 'text-destructive'
+                  }`}
+                >
+                  {ledger.changeAmount > 0 ? '+' : ''}
+                  {ledger.changeAmount}
+                </span>
+              </div>
             </div>
           ))}
         </div>

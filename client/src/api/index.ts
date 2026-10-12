@@ -120,6 +120,8 @@ export const courseApi = {
       method: 'POST',
       data,
     }),
+  confirmLedger: (id: string): Promise<{ success: boolean }> =>
+    request({ url: `/api/course/ledger/${id}/confirm`, method: 'PATCH' }),
 };
 
 export const taskApi = {

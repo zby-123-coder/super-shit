@@ -262,6 +262,8 @@ export const lessonLedger = pgTable("lesson_ledger", {
   courseId: uuid("course_id"),
   operatorUserId: varchar("operator_user_id", { length: 64 }),
   remark: text("remark"),
+  confirmedAt: customTimestamptz("confirmed_at", { precision: 3 }),
+  confirmedBy: varchar("confirmed_by", { length: 64 }),
   // System field: Creation time (auto-filled, do not modify)
   createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   // System field: Creator (auto-filled, do not modify)

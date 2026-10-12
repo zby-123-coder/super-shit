@@ -175,6 +175,13 @@ export class CourseController {
     return this.courseService.updateStatus(id, dto.status, userId, dto.remark);
   }
 
+  @Patch('ledger/:id/confirm')
+  async confirmLedger(@Req() req: Request, @Param('id') id: string) {
+    const { userId } = req.userContext;
+    await this.courseService.confirmLedger(id, userId);
+    return { success: true };
+  }
+
   @Post(':id/consume')
   async consume(@Req() req: Request, @Param('id') id: string) {
     const { userId } = req.userContext;

@@ -361,13 +361,42 @@ export class CourseService {
       await this.messageService.notify({
         userId: targetId,
         msgType: 'lesson',
-        title: '课时已消耗',
-        content: `${target.subject} 本次消耗 ${amount} 课时，剩余 ${remaining} 课时`,
+        title: '课时已消耗，请确认',
+        content: `${target.subject} 本次消耗 ${amount} 课时，剩余 ${remaining} 课时，请核对后确认`,
         linkPath: '/lessons',
       });
     }
 
     return { remaining, subject: target.subject };
+  }
+
+  /** 家长/学生确认某笔消课（双向确认，避免糊涂扣费） */
+  async confirmLedger(ledgerId: string, userId: string): Promise<void> {
+    const rows = await this.db
+      .select()
+      .from(lessonLedger)
+      .where(eq(lessonLedger.id, ledgerId))
+      .limit(1);
+    if (rows.length === 0) {
+      throw new ForbiddenException('流水记录不存在');
+    }
+    const ledger = rows[0];
+    if (ledger.changeType !== 'consume') {
+      throw new BadRequestException('只有消课记录需要确认');
+    }
+    const me = await this.accountService.findProfile(userId);
+    if (!me) throw new ForbiddenException('请先完善个人身份');
+    const isSelf = me.role === 'student' && userId === ledger.studentUserId;
+    const isParent =
+      me.role === 'parent' &&
+      (await this.accountService.canViewStudent(userId, ledger.studentUserId));
+    if (!isSelf && !isParent) {
+      throw new ForbiddenException('只能确认本人或本人孩子的消课记录');
+    }
+    await this.db
+      .update(lessonLedger)
+      .set({ confirmedAt: new Date(), confirmedBy: userId })
+      .where(eq(lessonLedger.id, ledgerId));
   }
 
   async lessonSummary(studentUserId: string): Promise<LessonSummaryResponse> {
@@ -389,6 +418,7 @@ export class CourseService {
       changeType: row.changeType as 'purchase' | 'consume' | 'adjust',
       remark: row.remark ?? '',
       createdAt: row.createdAt.toISOString(),
+      confirmedAt: row.confirmedAt ? row.confirmedAt.toISOString() : null,
     }));
     return {
       accounts: accounts.map((row: AccountRow) => ({
