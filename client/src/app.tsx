@@ -12,6 +12,7 @@ import ProgressPage from './pages/progress';
 import ContentPage from './pages/content';
 import ArticleDetailPage from './pages/article-detail';
 import ProfilePage from './pages/me';
+import DevSwitchPage from './pages/dev';
 import AdminPage from './pages/admin';
 
 const RoutesComponent = () => {
@@ -27,6 +28,7 @@ const RoutesComponent = () => {
         <Route path="content" element={<ContentPage />} />
         <Route path="content/:id" element={<ArticleDetailPage />} />
         <Route path="me" element={<ProfilePage />} />
+        <Route path="dev" element={<DevSwitchPage />} />
       </Route>
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<AdminPage />} />

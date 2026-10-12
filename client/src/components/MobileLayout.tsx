@@ -5,18 +5,55 @@ import {
   CalendarDays,
   CheckSquare,
   Home,
+  RefreshCw,
   User,
 } from 'lucide-react';
 import { useAccount } from '@client/src/hooks/useAccount';
 import { getToken, UNAUTHORIZED_EVENT } from '@client/src/utils/auth-token';
 
-const TABS = [
-  { to: '/', label: '首页', icon: Home, end: true },
-  { to: '/schedule', label: '课程表', icon: CalendarDays, end: false },
-  { to: '/tasks', label: '任务', icon: CheckSquare, end: false },
-  { to: '/content', label: '发现', icon: BookOpen, end: false },
-  { to: '/me', label: '我的', icon: User, end: false },
-];
+const BASE_TABS = {
+  student: [
+    ['home', '🏠', '首页'],
+    ['schedule', '📅', '课表'],
+    ['tasks', '✅', '任务'],
+    ['lessons', '⏱', '课时'],
+    ['progress', '📈', '进度'],
+    ['content', '📖', '发现'],
+    ['me', '👤', '我的'],
+  ],
+  parent: [
+    ['home', '🏠', '首页'],
+    ['schedule', '📅', '课表'],
+    ['tasks', '✅', '学情'],
+    ['lessons', '⏱', '课时'],
+    ['progress', '📈', '进度'],
+    ['content', '📖', '发现'],
+    ['me', '👤', '我的'],
+  ],
+  teacher: [
+    ['home', '🏠', '工作台'],
+    ['schedule', '📅', '课表'],
+    ['tasks', '✅', '批阅'],
+    ['lessons', '⏱', '课时'],
+    ['progress', '📈', '进度'],
+    ['content', '📖', '发现'],
+    ['me', '👤', '我的'],
+  ],
+  admin: [
+    ['home', '🏠', '概览'],
+    ['schedule', '📅', '课表'],
+    ['tasks', '✅', '任务'],
+    ['lessons', '⏱', '课时'],
+    ['progress', '📈', '进度'],
+    ['content', '📖', '内容'],
+    ['me', '👤', '我的'],
+  ],
+} as const;
+
+/** 仅本地开发环境追加身份切换入口 */
+const isLocalDev =
+  typeof window !== 'undefined' &&
+  ['localhost', '127.0.0.1'].includes(window.location.hostname);
 
 const MobileLayout = () => {
   const { data, loading } = useAccount();
@@ -36,6 +73,12 @@ const MobileLayout = () => {
     return <Navigate to="/login" replace />;
   }
 
+  const role = data?.profile?.role ?? 'student';
+  const tabs: [string, string, string][] = [
+    ...(BASE_TABS[role] as unknown as [string, string, string][]),
+  ];
+  if (isLocalDev) tabs.push(['dev', '🔧', '切换']);
+
   return (
     <div className="flex min-h-screen justify-center bg-muted/50">
       <div className="flex min-h-screen w-full max-w-[430px] flex-col bg-background">
@@ -49,19 +92,21 @@ const MobileLayout = () => {
           )}
         </div>
         <nav className="sticky bottom-0 flex border-t bg-background/95 backdrop-blur">
-          {TABS.map((tab) => (
+          {tabs.map(([to, icon, label]) => (
             <NavLink
-              key={tab.to}
-              to={tab.to}
-              end={tab.end}
+              key={to}
+              to={to === 'home' ? '/' : `/${to}`}
+              end={to === 'home'}
               className={({ isActive }: { isActive: boolean }) =>
-                `flex flex-1 flex-col items-center gap-1 py-2 text-xs ${
+                `flex flex-1 flex-col items-center gap-1 py-2 text-[10px] ${
                   isActive ? 'text-primary' : 'text-muted-foreground'
                 }`
               }
             >
-              <tab.icon className="size-5" />
-              {tab.label}
+              <span className="text-base leading-none">
+                {to === 'dev' ? <RefreshCw className="size-4" /> : icon}
+              </span>
+              {label}
             </NavLink>
           ))}
         </nav>

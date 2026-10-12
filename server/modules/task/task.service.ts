@@ -9,7 +9,7 @@ import {
   taskCheckin,
   teachingLink,
 } from '@server/database/schema';
-import { desc, eq, inArray, sql } from 'drizzle-orm';
+import { desc, eq, inArray } from 'drizzle-orm';
 import type {
   CheckinDTO,
   CreateCheckinRequest,
@@ -140,7 +140,7 @@ export class TaskService {
       const checkins: CheckinRow[] = await this.db
         .select()
         .from(taskCheckin)
-        .where(sql`${taskCheckin.taskId} = ANY(${taskIds}::uuid[])`)
+        .where(inArray(taskCheckin.taskId, taskIds))
         .orderBy(desc(taskCheckin.createdAt));
       checkins.forEach((row: CheckinRow) => {
         if (!checkinMap.has(row.taskId)) {
