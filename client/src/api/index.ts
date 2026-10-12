@@ -204,6 +204,15 @@ export const messageApi = {
     request({ url: '/api/message/broadcast', method: 'POST', data }),
 };
 
+export const demoApi = {
+  status: (): Promise<boolean> =>
+    request({ url: '/api/demo/status', method: 'GET' }),
+  seed: (): Promise<{ created: number }> =>
+    request({ url: '/api/demo/seed', method: 'POST' }),
+  clear: (): Promise<{ removed: number }> =>
+    request({ url: '/api/demo/clear', method: 'POST' }),
+};
+
 export const adminApi = {
   overview: (): Promise<AdminOverview> =>
     request({ url: '/api/admin/overview', method: 'GET' }),

@@ -101,6 +101,11 @@ const HomePage = () => {
     { to: '/progress', label: '学习进度', icon: TrendingUp },
   ];
 
+  const isBlank =
+    role !== 'admin' &&
+    todayCourses.length === 0 &&
+    (tasks?.items.length ?? 0) === 0;
+
   const childLabel =
     role === 'parent' && data?.children.length
       ? `${data.children[0].name} 的学习概览`
@@ -130,6 +135,20 @@ const HomePage = () => {
       />
 
       <div className="flex flex-col gap-3 p-4">
+        {isBlank ? (
+          <Card className="border-primary/30 bg-primary/5">
+            <CardContent className="flex flex-col gap-2 p-4">
+              <p className="text-sm font-medium">欢迎使用</p>
+              <p className="text-xs text-muted-foreground">
+                现在还是空白的。可以先加载一份演示数据，看看排课、消课、打卡、课时是怎么流转的。
+              </p>
+              <Button asChild size="sm" className="self-start">
+                <Link to="/me">去「我的」加载演示数据</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        ) : null}
+
         <div className="grid grid-cols-4 gap-2">
           {quickLinks.map((link) => (
             <Link

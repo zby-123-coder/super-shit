@@ -16,7 +16,7 @@ import {
 import { Input } from '@client/src/components/ui/input';
 import { EmptyBlock, LoadingBlock, PageHeader } from '@client/src/components/PageShell';
 import { useNavigate } from 'react-router-dom';
-import { accountApi, authApi, messageApi } from '@client/src/api';
+import { accountApi, authApi, demoApi, messageApi } from '@client/src/api';
 import { refreshAccount, useAccount } from '@client/src/hooks/useAccount';
 import { clearToken } from '@client/src/utils/auth-token';
 import type { BindItemDTO, MessageDTO, UserRole } from '@shared/api.interface';
@@ -39,6 +39,7 @@ const MePage = () => {
   }>({ children: [], students: [], guardians: [] });
   const [messages, setMessages] = useState<MessageDTO[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [seeding, setSeeding] = useState<boolean>(false);
   const [inviteCode, setInviteCode] = useState<string>('');
   const [editOpen, setEditOpen] = useState<boolean>(false);
   const [form, setForm] = useState<{
@@ -145,6 +146,55 @@ const MePage = () => {
       />
 
       <div className="flex flex-col gap-3 p-4">
+        <Card data-ai-section-type="card-stat">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <h2 className="text-sm font-medium">演示模式</h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  一键体验完整产品效果，可随时清除
+                </p>
+              </div>
+              <div className="flex shrink-0 gap-2">
+                <Button
+                  size="sm"
+                  disabled={seeding}
+                  onClick={async () => {
+                    setSeeding(true);
+                    try {
+                      const result = await demoApi.seed();
+                      if (result.created === 0) {
+                        toast('已加载过演示数据，无需重复操作');
+                      } else {
+                        toast.success('演示数据已加载');
+                      }
+                      await reload();
+                      navigate('/', { replace: true });
+                    } catch (error) {
+                      toast.error('加载失败，请重试');
+                    } finally {
+                      setSeeding(false);
+                    }
+                  }}
+                >
+                  {seeding ? '加载中…' : '加载演示数据'}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={async () => {
+                    await demoApi.clear();
+                    toast.success('演示数据已清除');
+                    await reload();
+                  }}
+                >
+                  清除
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         <Card data-ai-section-type="card-stat">
           <CardContent className="p-4">
             <p className="text-sm font-medium">{profile.name || '未命名'}</p>

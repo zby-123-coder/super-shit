@@ -13,6 +13,7 @@ import { TaskModule } from './modules/task/task.module';
 import { ProgressModule } from './modules/progress/progress.module';
 import { ContentModule } from './modules/content/content.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { DemoModule } from './modules/demo/demo.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { AdminModule } from './modules/admin/admin.module';
     ProgressModule,
     ContentModule,
     AdminModule,
+    DemoModule,
     // ====== @route-section: business-modules END ======
 
     // ⚠️ @route-order: last
