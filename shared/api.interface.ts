@@ -26,6 +26,28 @@ export interface WeeklyReport {
   text: string;
 }
 
+export interface WrongQuestionDTO {
+  id: string;
+  studentUserId: string;
+  studentName: string;
+  subject: string;
+  chapter: string;
+  title: string;
+  reason: string;
+  knowledgePoint: string;
+  status: 'open' | 'corrected';
+  createdAt: string;
+}
+
+export interface SaveWrongQuestionRequest {
+  studentUserId?: string;
+  subject: string;
+  chapter?: string;
+  title: string;
+  reason?: string;
+  knowledgePoint?: string;
+}
+
 export interface RegisterRequest {
   loginName: string;
   password: string;

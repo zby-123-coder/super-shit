@@ -15,6 +15,8 @@ import {
 import { Input } from '@client/src/components/ui/input';
 import { Textarea } from '@client/src/components/ui/textarea';
 import { EmptyBlock, LoadingBlock, PageHeader } from '@client/src/components/PageShell';
+import WrongQuestionBook from '@client/src/components/WrongQuestionBook';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@client/src/components/ui/tabs';
 import { taskApi } from '@client/src/api';
 import {
   PRESET_COMMENTS,
@@ -147,7 +149,13 @@ const TasksPage = () => {
         }
       />
 
-      <div className="flex flex-col gap-3 p-4">
+      <Tabs defaultValue="tasks" className="px-4 pt-3">
+        <TabsList>
+          <TabsTrigger value="tasks">学习任务</TabsTrigger>
+          <TabsTrigger value="wrong">错题本</TabsTrigger>
+        </TabsList>
+        <TabsContent value="tasks">
+      <div className="flex flex-col gap-3 pt-3">
         {loading ? <LoadingBlock /> : null}
         {!loading && (tasks?.items.length ?? 0) === 0 ? (
           <EmptyBlock text="暂无学习任务" />
@@ -222,6 +230,12 @@ const TasksPage = () => {
           </Card>
         ))}
       </div>
+
+        </TabsContent>
+        <TabsContent value="wrong" className="pt-3">
+          <WrongQuestionBook />
+        </TabsContent>
+      </Tabs>
 
       <Dialog
         open={!!checkinTask}

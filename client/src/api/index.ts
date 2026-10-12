@@ -31,6 +31,8 @@ import type {
   UpdateAdminUserRequest,
   UpdateCourseStatusRequest,
   WeeklyReport,
+  WrongQuestionDTO,
+  SaveWrongQuestionRequest,
 } from '@shared/api.interface';
 
 type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
@@ -205,6 +207,21 @@ export const messageApi = {
     role?: string;
   }): Promise<{ success: boolean; count: number }> =>
     request({ url: '/api/message/broadcast', method: 'POST', data }),
+};
+
+export const wrongQuestionApi = {
+  list: (studentUserId?: string): Promise<WrongQuestionDTO[]> =>
+    request({
+      url: '/api/wrong-question',
+      method: 'GET',
+      params: { studentUserId },
+    }),
+  create: (data: SaveWrongQuestionRequest): Promise<WrongQuestionDTO> =>
+    request({ url: '/api/wrong-question', method: 'POST', data }),
+  markCorrected: (id: string): Promise<{ success: boolean }> =>
+    request({ url: `/api/wrong-question/${id}/corrected`, method: 'PATCH' }),
+  remove: (id: string): Promise<{ success: boolean }> =>
+    request({ url: `/api/wrong-question/${id}`, method: 'DELETE' }),
 };
 
 export const reportApi = {

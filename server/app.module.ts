@@ -15,6 +15,7 @@ import { ContentModule } from './modules/content/content.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { DemoModule } from './modules/demo/demo.module';
 import { ReportModule } from './modules/report/report.module';
+import { WrongQuestionModule } from './modules/wrong-question/wrong-question.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { ReportModule } from './modules/report/report.module';
     AdminModule,
     DemoModule,
     ReportModule,
+    WrongQuestionModule,
     // ====== @route-section: business-modules END ======
 
     // ⚠️ @route-order: last

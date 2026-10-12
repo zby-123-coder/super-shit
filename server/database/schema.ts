@@ -435,6 +435,23 @@ export const authSession = pgTable("auth_session", {
   index("idx_auth_session_user").on(table.userId),
 ]);
 
+export const wrongQuestion = pgTable("wrong_question", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  studentUserId: varchar("student_user_id", { length: 64 }).notNull(),
+  subject: varchar("subject", { length: 64 }).notNull(),
+  chapter: varchar("chapter", { length: 255 }),
+  title: varchar("title", { length: 500 }).notNull(),
+  reason: varchar("reason", { length: 255 }),
+  knowledgePoint: varchar("knowledge_point", { length: 255 }),
+  status: varchar("status", { length: 32 }).notNull().default('open'),
+  createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  createdBy: varchar("_created_by", { length: 64 }),
+  updatedAt: customTimestamptz("_updated_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedBy: varchar("_updated_by", { length: 64 }),
+}, (table) => [
+  index("idx_wq_student").on(table.studentUserId, table.createdAt),
+]);
+
 // table aliases
 export const appProfileTable = appProfile;
 export const articleTable = article;
