@@ -3,7 +3,9 @@ import {
   Controller,
   Headers,
   Post,
+  Req,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import type { AuthResponse, LoginRequest, RegisterRequest } from '@shared/api.interface';
 import { AuthService } from './auth.service';
@@ -69,11 +71,15 @@ export class AuthController {
   }
 
   @Post('login')
-  async login(@Body() dto: LoginDto): Promise<AuthResponse> {
-    return this.authService.login({
-      loginName: dto.loginName,
-      password: dto.password,
-    });
+  async login(@Req() req: Request, @Body() dto: LoginDto): Promise<AuthResponse> {
+    const ip = req.ip ?? '';
+    return this.authService.login(
+      {
+        loginName: dto.loginName,
+        password: dto.password,
+      },
+      ip,
+    );
   }
 
   @Post('logout')

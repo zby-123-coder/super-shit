@@ -1,4 +1,4 @@
-import { ForbiddenException, Inject, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Inject, Injectable, Logger } from '@nestjs/common';
 import {
   DRIZZLE_DATABASE,
   type PostgresJsDatabase,
@@ -296,56 +296,61 @@ export class CourseService {
         throw new ForbiddenException('只能对自己授课的课程消课');
       }
     }
-    if (target.status !== 'done') {
-      await this.db
-        .update(course)
-        .set({ status: 'done' })
-        .where(eq(course.id, courseId));
-    }
-
     const amount = target.lessonCount || 1;
-    const existing: AccountRow[] = await this.db
-      .select()
-      .from(lessonAccount)
-      .where(
-        and(
-          eq(lessonAccount.studentUserId, target.studentUserId),
-          eq(lessonAccount.subject, target.subject),
-        ),
-      )
-      .limit(1);
 
-    let remaining = 0;
-    if (existing.length === 0) {
-      const created: AccountRow[] = await this.db
-        .insert(lessonAccount)
-        .values({
-          studentUserId: target.studentUserId,
-          subject: target.subject,
-          totalLessons: 0,
-          usedLessons: amount,
-        })
-        .returning();
-      remaining =
-        created[0].totalLessons - created[0].usedLessons;
-    } else {
-      const account = existing[0];
-      const updated: AccountRow[] = await this.db
-        .update(lessonAccount)
-        .set({ usedLessons: account.usedLessons + amount })
-        .where(eq(lessonAccount.id, account.id))
-        .returning();
-      remaining = updated[0].totalLessons - updated[0].usedLessons;
-    }
+    // 事务：改课程状态 + 扣课时 + 写流水，要么全成功要么全回滚
+    const remaining = await this.db.transaction(async (tx) => {
+      if (target.status !== 'done') {
+        await tx
+          .update(course)
+          .set({ status: 'done' })
+          .where(eq(course.id, courseId));
+      }
 
-    await this.db.insert(lessonLedger).values({
-      studentUserId: target.studentUserId,
-      subject: target.subject,
-      changeAmount: -amount,
-      changeType: 'consume',
-      courseId: target.id,
-      operatorUserId: userId,
-      remark: `${target.subject} 课程消课`,
+      const existing: AccountRow[] = await tx
+        .select()
+        .from(lessonAccount)
+        .where(
+          and(
+            eq(lessonAccount.studentUserId, target.studentUserId),
+            eq(lessonAccount.subject, target.subject),
+          ),
+        )
+        .limit(1);
+
+      let left = 0;
+      if (existing.length === 0) {
+        const created: AccountRow[] = await tx
+          .insert(lessonAccount)
+          .values({
+            studentUserId: target.studentUserId,
+            subject: target.subject,
+            totalLessons: 0,
+            usedLessons: amount,
+          })
+          .returning();
+        left = created[0].totalLessons - created[0].usedLessons;
+      } else {
+        const account = existing[0];
+        const updated: AccountRow[] = await tx
+          .update(lessonAccount)
+          .set({ usedLessons: account.usedLessons + amount })
+          .where(eq(lessonAccount.id, account.id))
+          .returning();
+        left = updated[0].totalLessons - updated[0].usedLessons;
+      }
+
+      await tx.insert(lessonLedger).values({
+        studentUserId: target.studentUserId,
+        subject: target.subject,
+        changeAmount: -amount,
+        changeType: 'consume',
+        courseId: target.id,
+        operatorUserId: userId,
+        remark: `${target.subject} 课程消课`,
+      });
+
+      return left;
     });
 
     const notified = [
@@ -402,6 +407,13 @@ export class CourseService {
     if (!me || me.role !== 'admin') {
       throw new ForbiddenException('只有管理员可以发放课时');
     }
+    const amount = Math.trunc(Number(dto.amount));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new BadRequestException('发放课时必须是大于 0 的整数');
+    }
+    if (amount > 999) {
+      throw new BadRequestException('单次发放课时不能超过 999');
+    }
     const existing: AccountRow[] = await this.db
       .select()
       .from(lessonAccount)
@@ -416,20 +428,20 @@ export class CourseService {
       await this.db.insert(lessonAccount).values({
         studentUserId: dto.studentUserId,
         subject: dto.subject,
-        totalLessons: dto.amount,
+        totalLessons: amount,
         usedLessons: 0,
       });
     } else {
       const account = existing[0];
       await this.db
         .update(lessonAccount)
-        .set({ totalLessons: account.totalLessons + dto.amount })
+        .set({ totalLessons: account.totalLessons + amount })
         .where(eq(lessonAccount.id, account.id));
     }
     await this.db.insert(lessonLedger).values({
       studentUserId: dto.studentUserId,
       subject: dto.subject,
-      changeAmount: dto.amount,
+      changeAmount: amount,
       changeType: 'purchase',
       operatorUserId: userId,
       remark: dto.remark ?? '后台发放课时',
@@ -444,7 +456,7 @@ export class CourseService {
         userId: targetId,
         msgType: 'lesson',
         title: '课时已发放',
-        content: `${dto.subject} 新增 ${dto.amount} 课时`,
+        content: `${dto.subject} 新增 ${amount} 课时`,
         linkPath: '/lessons',
       });
     }

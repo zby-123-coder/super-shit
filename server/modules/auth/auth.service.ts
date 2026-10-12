@@ -27,6 +27,45 @@ type CredentialRow = typeof authCredential.$inferSelect;
 type SessionRow = typeof authSession.$inferSelect;
 
 const SESSION_DAYS = 30;
+const LOGIN_MAX_ATTEMPTS = 5;
+const LOGIN_LOCK_MS = 15 * 60 * 1000;
+
+interface AttemptRecord {
+  count: number;
+  lockedUntil: number;
+}
+
+/** 登录防爆破：登录名 + IP 双维度，内存计数（单机部署够用） */
+const loginAttempts = new Map<string, AttemptRecord>();
+
+function attemptKey(loginName: string, ip: string): string {
+  return `${loginName}@${ip}`;
+}
+
+export function checkLoginAllowed(loginName: string, ip: string): void {
+  const record = loginAttempts.get(attemptKey(loginName, ip));
+  if (record && record.lockedUntil > Date.now()) {
+    const waitMin = Math.ceil((record.lockedUntil - Date.now()) / 60000);
+    throw new UnauthorizedException(
+      `尝试次数过多，请 ${waitMin} 分钟后再试`,
+    );
+  }
+}
+
+export function recordLoginFailure(loginName: string, ip: string): void {
+  const key = attemptKey(loginName, ip);
+  const record = loginAttempts.get(key) ?? { count: 0, lockedUntil: 0 };
+  record.count += 1;
+  if (record.count >= LOGIN_MAX_ATTEMPTS) {
+    record.lockedUntil = Date.now() + LOGIN_LOCK_MS;
+    record.count = 0;
+  }
+  loginAttempts.set(key, record);
+}
+
+export function clearLoginFailures(loginName: string, ip: string): void {
+  loginAttempts.delete(attemptKey(loginName, ip));
+}
 
 /** 密码哈希：scrypt（慢哈希），格式 salt:hash，不存明文 */
 function hashPassword(password: string): string {
@@ -116,17 +155,21 @@ export class AuthService {
     };
   }
 
-  async login(payload: LoginRequest): Promise<AuthResponse> {
+  async login(payload: LoginRequest, ip = ''): Promise<AuthResponse> {
+    const loginName = payload.loginName.trim();
+    checkLoginAllowed(loginName, ip);
     const rows: CredentialRow[] = await this.db
       .select()
       .from(authCredential)
-      .where(eq(authCredential.loginName, payload.loginName.trim()))
+      .where(eq(authCredential.loginName, loginName))
       .limit(1);
     if (rows.length === 0) {
+      recordLoginFailure(loginName, ip);
       throw new UnauthorizedException('登录名或密码不正确');
     }
     const credential = rows[0];
     if (!verifyPassword(payload.password, credential.passwordHash)) {
+      recordLoginFailure(loginName, ip);
       throw new UnauthorizedException('登录名或密码不正确');
     }
     const profiles = await this.db
@@ -137,6 +180,7 @@ export class AuthService {
     if (profiles.length === 0) {
       throw new UnauthorizedException('账号档案不存在');
     }
+    clearLoginFailures(loginName, ip);
     const profile = profiles[0];
     const token = await this.issueSession(credential.userId, profile.role);
     return {
