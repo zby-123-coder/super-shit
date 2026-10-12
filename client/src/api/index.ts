@@ -30,6 +30,7 @@ import type {
   TaskListResponse,
   UpdateAdminUserRequest,
   UpdateCourseStatusRequest,
+  WeeklyReport,
 } from '@shared/api.interface';
 
 type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
@@ -202,6 +203,15 @@ export const messageApi = {
     role?: string;
   }): Promise<{ success: boolean; count: number }> =>
     request({ url: '/api/message/broadcast', method: 'POST', data }),
+};
+
+export const reportApi = {
+  weekly: (studentUserId?: string): Promise<WeeklyReport> =>
+    request({
+      url: '/api/report/weekly',
+      method: 'GET',
+      params: { studentUserId },
+    }),
 };
 
 export const demoApi = {

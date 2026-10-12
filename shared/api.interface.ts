@@ -2,6 +2,30 @@
 
 export type UserRole = 'student' | 'parent' | 'teacher' | 'admin';
 
+export interface WeeklyReportSection {
+  title: string;
+  lines: string[];
+}
+
+export interface WeeklyReport {
+  studentName: string;
+  weekStart: string;
+  weekEnd: string;
+  stats: {
+    taskTotal: number;
+    taskApproved: number;
+    checkinCount: number;
+    totalMinutes: number;
+    courseDone: number;
+    consumedLessons: number;
+    purchasedLessons: number;
+    remainingLessons: number;
+  };
+  sections: WeeklyReportSection[];
+  /** 纯文本版，便于一键复制分享 */
+  text: string;
+}
+
 export interface RegisterRequest {
   loginName: string;
   password: string;

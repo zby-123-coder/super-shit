@@ -14,6 +14,7 @@ import { ProgressModule } from './modules/progress/progress.module';
 import { ContentModule } from './modules/content/content.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { DemoModule } from './modules/demo/demo.module';
+import { ReportModule } from './modules/report/report.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { DemoModule } from './modules/demo/demo.module';
     ContentModule,
     AdminModule,
     DemoModule,
+    ReportModule,
     // ====== @route-section: business-modules END ======
 
     // ⚠️ @route-order: last

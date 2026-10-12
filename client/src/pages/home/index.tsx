@@ -14,6 +14,7 @@ import { Button } from '@client/src/components/ui/button';
 import { Card, CardContent } from '@client/src/components/ui/card';
 import { Progress } from '@client/src/components/ui/progress';
 import { EmptyBlock, LoadingBlock, PageHeader } from '@client/src/components/PageShell';
+import WeeklyReportCard from '@client/src/components/WeeklyReportCard';
 import { courseApi, messageApi, taskApi } from '@client/src/api';
 import { useAccount } from '@client/src/hooks/useAccount';
 import type {
@@ -288,6 +289,14 @@ const HomePage = () => {
               )}
             </CardContent>
           </Card>
+        ) : null}
+
+        {role === 'student' || role === 'parent' ? (
+          <WeeklyReportCard
+            studentUserId={
+              role === 'parent' ? data?.children[0]?.userId : undefined
+            }
+          />
         ) : null}
 
         {role === 'student' || role === 'parent' ? (
