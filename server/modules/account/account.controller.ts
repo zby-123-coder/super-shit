@@ -7,7 +7,8 @@ import {
   Post,
   Req,
 } from '@nestjs/common';
-import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsBoolean, IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
+import { Type } from 'class-transformer';
 import type { Request } from 'express';
 import type {
   AccountMeResponse,
@@ -44,6 +45,11 @@ class SaveProfileDto implements SaveProfileRequest {
   @IsOptional()
   @IsString()
   avatarUrl?: string;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  notifyMute?: boolean;
 }
 
 class BindByCodeDto implements BindByCodeRequest {
@@ -75,6 +81,7 @@ export class AccountController {
       grade: dto.grade,
       subjectTags: dto.subjectTags,
       avatarUrl: dto.avatarUrl,
+      notifyMute: dto.notifyMute,
     });
   }
 

@@ -361,6 +361,7 @@ export class CourseService {
       await this.messageService.notify({
         userId: targetId,
         msgType: 'lesson',
+        priority: 'urgent',
         title: '课时已消耗，请确认',
         content: `${target.subject} 本次消耗 ${amount} 课时，剩余 ${remaining} 课时，请核对后确认`,
         linkPath: '/lessons',
@@ -485,6 +486,7 @@ export class CourseService {
       await this.messageService.notify({
         userId: targetId,
         msgType: 'lesson',
+        priority: 'urgent',
         title: '课时已发放',
         content: `${dto.subject} 新增 ${amount} 课时`,
         linkPath: '/lessons',

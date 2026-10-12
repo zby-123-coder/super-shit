@@ -74,6 +74,7 @@ export interface AppProfileDTO {
   subjectTags: string;
   avatarUrl: string;
   inviteCode: string;
+  notifyMute: boolean;
 }
 
 export interface RelatedUserDTO {
@@ -97,6 +98,8 @@ export interface SaveProfileRequest {
   grade?: string;
   subjectTags?: string;
   avatarUrl?: string;
+  /** 免打扰：普通通知不再送达，重要通知（消课确认/课时预警）仍送达 */
+  notifyMute?: boolean;
 }
 
 export interface BindByCodeRequest {
@@ -288,6 +291,7 @@ export interface MessageDTO {
   content: string;
   linkPath: string;
   isRead: boolean;
+  priority: 'urgent' | 'normal';
   createdAt: string;
 }
 

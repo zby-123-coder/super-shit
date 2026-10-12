@@ -282,53 +282,104 @@ const MePage = () => {
           <CardContent className="p-4">
             <div className="mb-2 flex items-center justify-between">
               <h2 className="text-sm font-medium">消息中心</h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={async () => {
-                  await messageApi.markAllRead();
-                  await load();
-                }}
-              >
-                全部已读
-              </Button>
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={profile.notifyMute}
+                    aria-label="免打扰模式"
+                    onChange={async (event) => {
+                      await accountApi.saveProfile({
+                        role: profile.role,
+                        name: profile.name,
+                        notifyMute: event.target.checked,
+                      });
+                      await reload();
+                      toast.success(
+                        event.target.checked
+                          ? '已开启免打扰，重要通知仍会送达'
+                          : '已关闭免打扰',
+                      );
+                    }}
+                  />
+                  免打扰
+                </label>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={async () => {
+                    await messageApi.markAllRead();
+                    await load();
+                  }}
+                >
+                  全部已读
+                </Button>
+              </div>
             </div>
             {loading ? <LoadingBlock /> : null}
             {!loading && messages.length === 0 ? (
               <EmptyBlock text="暂无消息" />
             ) : null}
-            {messages.slice(0, 10).map((message) => (
-              <div
-                key={message.id}
-                className="flex items-start gap-2 border-b py-2 last:border-none"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm">
-                    {message.title}
-                    {!message.isRead ? (
-                      <span className="ml-1 inline-block size-1.5 rounded-full bg-primary" />
-                    ) : null}
+            {(() => {
+              const today = dayjs().format('YYYY-MM-DD');
+              return [
+                {
+                  label: '今天',
+                  items: messages.filter(
+                    (m) => dayjs(m.createdAt).format('YYYY-MM-DD') === today,
+                  ),
+                },
+                {
+                  label: '更早',
+                  items: messages.filter(
+                    (m) => dayjs(m.createdAt).format('YYYY-MM-DD') !== today,
+                  ),
+                },
+              ];
+            })().map((group) =>
+              group.items.length > 0 ? (
+                <div key={group.label}>
+                  <p className="mb-1 text-xs text-muted-foreground">
+                    {group.label}
                   </p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {message.content}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground">
-                    {dayjs(message.createdAt).format('MM-DD HH:mm')}
-                  </p>
+                  {group.items.slice(0, 8).map((message) => (
+                    <div
+                      key={message.id}
+                      className="flex items-start gap-2 border-b py-2 last:border-none"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm">
+                          {message.priority === 'urgent' ? (
+                            <span className="tag o mr-1">重要</span>
+                          ) : null}
+                          {message.title}
+                          {!message.isRead ? (
+                            <span className="ml-1 inline-block size-1.5 rounded-full bg-primary" />
+                          ) : null}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {message.content}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {dayjs(message.createdAt).format('MM-DD HH:mm')}
+                        </p>
+                      </div>
+                      {message.linkPath ? (
+                        <Link
+                          to={message.linkPath}
+                          onClick={async () => {
+                            await messageApi.markRead(message.id);
+                          }}
+                          className="text-xs text-primary"
+                        >
+                          查看
+                        </Link>
+                      ) : null}
+                    </div>
+                  ))}
                 </div>
-                {message.linkPath ? (
-                  <Link
-                    to={message.linkPath}
-                    onClick={async () => {
-                      await messageApi.markRead(message.id);
-                    }}
-                    className="text-xs text-primary"
-                  >
-                    查看
-                  </Link>
-                ) : null}
-              </div>
-            ))}
+              ) : null,
+            )}
           </CardContent>
         </Card>
       </div>

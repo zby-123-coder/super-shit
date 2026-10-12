@@ -125,6 +125,7 @@ export const noticeMessage = pgTable("notice_message", {
   content: text("content"),
   linkPath: varchar("link_path", { length: 255 }),
   isRead: boolean("is_read").notNull().default(false),
+  priority: varchar("priority", { length: 16 }).notNull().default('normal'),
   // System field: Creation time (auto-filled, do not modify)
   createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   // System field: Creator (auto-filled, do not modify)
@@ -373,6 +374,7 @@ export const appProfile = pgTable("app_profile", {
   subjectTags: varchar("subject_tags", { length: 255 }),
   avatarUrl: text("avatar_url"),
   inviteCode: varchar("invite_code", { length: 16 }).unique(),
+  notifyMute: boolean("notify_mute").notNull().default(false),
   // System field: Creation time (auto-filled, do not modify)
   createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   // System field: Creator (auto-filled, do not modify)

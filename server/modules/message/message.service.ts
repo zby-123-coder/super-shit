@@ -29,6 +29,7 @@ export class MessageService {
       content: row.content ?? '',
       linkPath: row.linkPath ?? '',
       isRead: row.isRead,
+      priority: (row.priority ?? 'normal') as 'urgent' | 'normal',
       createdAt: row.createdAt.toISOString(),
     };
   }
@@ -39,14 +40,28 @@ export class MessageService {
     title: string;
     content: string;
     linkPath?: string;
+    /** urgent = 免打扰模式下仍然送达 */
+    priority?: 'urgent' | 'normal';
   }): Promise<void> {
     try {
+      const priority = params.priority ?? 'normal';
+      if (priority !== 'urgent') {
+        const profiles = await this.db
+          .select({ notifyMute: appProfile.notifyMute })
+          .from(appProfile)
+          .where(eq(appProfile.userId, params.userId))
+          .limit(1);
+        if (profiles.length > 0 && profiles[0].notifyMute) {
+          return;
+        }
+      }
       await this.db.insert(noticeMessage).values({
         userId: params.userId,
         msgType: params.msgType,
         title: params.title,
         content: params.content,
         linkPath: params.linkPath ?? null,
+        priority,
       });
     } catch (error) {
       this.logger.error('写入站内消息失败', JSON.stringify(error));

@@ -41,6 +41,7 @@ export class AccountService {
       subjectTags: row.subjectTags ?? '',
       avatarUrl: row.avatarUrl ?? '',
       inviteCode: row.inviteCode ?? '',
+      notifyMute: row.notifyMute ?? false,
     };
   }
 
@@ -203,6 +204,7 @@ export class AccountService {
           grade: payload.grade ?? existing[0].grade,
           subjectTags: payload.subjectTags ?? existing[0].subjectTags,
           avatarUrl: payload.avatarUrl ?? existing[0].avatarUrl,
+          notifyMute: payload.notifyMute ?? existing[0].notifyMute,
         })
         .where(eq(appProfile.userId, userId))
         .returning();
@@ -231,6 +233,7 @@ export class AccountService {
         subjectTags: payload.subjectTags ?? null,
         avatarUrl: payload.avatarUrl ?? null,
         inviteCode,
+        notifyMute: payload.notifyMute ?? false,
       })
       .returning();
     return this.toDTO(inserted[0]);
