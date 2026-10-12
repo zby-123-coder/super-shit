@@ -45,21 +45,23 @@ const HomePage = () => {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [weekData, taskData, lessonData, messageData] =
-        await Promise.all([
-          courseApi.getWeek(),
-          taskApi.list(),
-          courseApi.getLessons(),
-          messageApi.list(),
-        ]);
+      // 逐项容错：任一接口失败不应让整页崩溃
+      const [weekData, taskData, lessonData, messageData] = await Promise.all([
+        courseApi.getWeek().catch(() => null),
+        taskApi.list().catch(() => null),
+        role === 'student' || role === 'admin'
+          ? courseApi.getLessons().catch(() => null)
+          : Promise.resolve(null),
+        messageApi.list().catch(() => null),
+      ]);
       setWeek(weekData);
       setTasks(taskData);
       setLessons(lessonData);
-      setUnread(messageData.unreadCount);
+      setUnread(messageData?.unreadCount ?? 0);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [role]);
 
   useEffect(() => {
     load();

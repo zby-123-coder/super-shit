@@ -25,6 +25,12 @@ const LessonsPage = () => {
   const canPick = role === 'parent' || role === 'teacher' || role === 'admin';
 
   const load = useCallback(async () => {
+    // 家长/老师未选择学生时不请求，避免越权 403 噪声
+    if (canPick && !target) {
+      setSummary(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const result = await courseApi.getLessons(target || undefined);
@@ -34,7 +40,7 @@ const LessonsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [target]);
+  }, [target, canPick]);
 
   useEffect(() => {
     load();
@@ -80,6 +86,9 @@ const LessonsPage = () => {
       />
 
       <div className="flex flex-col gap-3 p-4">
+        {canPick && !target && candidates.length > 0 ? (
+          <EmptyBlock text="请先在上方选择要查看的学生" />
+        ) : null}
         {loading ? <LoadingBlock /> : null}
         {!loading && (summary?.accounts.length ?? 0) === 0 ? (
           <EmptyBlock text="暂无课时账户" />

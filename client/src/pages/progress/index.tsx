@@ -46,7 +46,15 @@ const ProgressPage = () => {
     currentPoint: '',
   });
 
+  const canPick = role === 'parent' || isStaff;
+
   const load = useCallback(async () => {
+    // 家长/老师未选择学生时不请求，避免越权 403 噪声
+    if (canPick && !target) {
+      setItems([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const result = await progressApi.list(target || undefined);
@@ -56,7 +64,7 @@ const ProgressPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [target]);
+  }, [target, canPick]);
 
   useEffect(() => {
     load();
@@ -71,7 +79,6 @@ const ProgressPage = () => {
     }
   }, [open, data, form.studentUserId]);
 
-  const canPick = role === 'parent' || isStaff;
   const candidates = [
     ...(data?.children ?? []).map((item) => ({
       id: item.userId,
@@ -144,7 +151,9 @@ const ProgressPage = () => {
       <div className="flex flex-col gap-3 p-4">
         {loading ? <LoadingBlock /> : null}
         {!loading && items.length === 0 ? (
-          <EmptyBlock text="暂无学习进度记录" />
+          <EmptyBlock
+            text={canPick && !target ? '请先在上方选择学生' : '暂无学习进度记录'}
+          />
         ) : null}
         {items.map((item) => (
           <Card key={item.id}>
