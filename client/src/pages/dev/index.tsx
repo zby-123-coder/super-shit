@@ -1,9 +1,16 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '@client/src/components/ui/button';
 import { Card, CardContent } from '@client/src/components/ui/card';
 import { Input } from '@client/src/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@client/src/components/ui/select';
 import { PageHeader } from '@client/src/components/PageShell';
 import { authApi } from '@client/src/api';
 import { refreshAccount, useAccount } from '@client/src/hooks/useAccount';
@@ -22,12 +29,14 @@ const DEV_ACCOUNTS: { loginName: string; label: string }[] = [
 const DevSwitchPage = () => {
   const { data } = useAccount();
   const navigate = useNavigate();
+  const location = useLocation();
   const [password, setPassword] = useState<string>('123456');
   const [manual, setManual] = useState<{ loginName: string; password: string }>(
     { loginName: '', password: '' },
   );
   const [busy, setBusy] = useState<boolean>(false);
 
+  /** 选中即登录切换，停留在当前页面（在 dev 页则回首页） */
   const switchTo = async (loginName: string, pwd: string) => {
     if (!loginName.trim() || !pwd) {
       toast.error('请输入登录名与密码');
@@ -41,8 +50,10 @@ const DevSwitchPage = () => {
       });
       setToken(result.token);
       await refreshAccount();
-      toast.success(`已切换为 ${result.name}（${result.role}）`);
-      navigate('/', { replace: true });
+      toast.success(`已切换：${result.name}（${result.role}）`);
+      const next =
+        location.pathname === '/dev' ? '/' : location.pathname;
+      navigate(next, { replace: true });
     } catch (error) {
       toast.error('切换失败：账号或密码不正确');
     } finally {
@@ -63,7 +74,11 @@ const DevSwitchPage = () => {
             <p className="text-xs text-muted-foreground">当前身份</p>
             <p className="mt-1 text-sm font-medium">
               {data?.profile
-                ? `${data.profile.name} · ${data.profile.role}`
+                ? `${data.profile.name} · ${data.profile.role}${
+                    data.profile.familyName
+                      ? ` · ${data.profile.familyName}`
+                      : ''
+                  }`
                 : '未登录'}
             </p>
           </CardContent>
@@ -71,26 +86,39 @@ const DevSwitchPage = () => {
 
         <Card>
           <CardContent className="flex flex-col gap-3 p-4">
-            <p className="text-sm font-medium">快捷切换（联调用账号）</p>
+            <p className="text-sm font-medium">一键切换身份</p>
             <Input
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               placeholder="统一密码"
               aria-label="统一密码"
             />
-            <div className="flex flex-col gap-2">
+            <Select
+              disabled={busy}
+              onValueChange={(value: string) => switchTo(value, password)}
+            >
+              <SelectTrigger aria-label="选择要切换的身份">
+                <SelectValue placeholder="选择身份，选中即切换" />
+              </SelectTrigger>
+              <SelectContent>
+                {DEV_ACCOUNTS.map((item) => (
+                  <SelectItem key={item.loginName} value={item.loginName}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex flex-wrap gap-1">
               {DEV_ACCOUNTS.map((item) => (
                 <Button
                   key={item.loginName}
+                  size="sm"
                   variant="outline"
-                  className="justify-between"
+                  className="text-xs"
                   disabled={busy}
                   onClick={() => switchTo(item.loginName, password)}
                 >
-                  {item.label}
-                  <span className="text-xs text-muted-foreground">
-                    {item.loginName}
-                  </span>
+                  {item.label.split(' · ')[1]}
                 </Button>
               ))}
             </div>

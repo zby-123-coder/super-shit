@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useAccount } from '@client/src/hooks/useAccount';
 import { getToken, UNAUTHORIZED_EVENT } from '@client/src/utils/auth-token';
+import DevFloatingSwitch from '@client/src/components/DevFloatingSwitch';
 
 const BASE_TABS = {
   student: [
@@ -82,6 +83,7 @@ const MobileLayout = () => {
   return (
     <div className="flex min-h-screen justify-center bg-muted/50">
       <div className="flex min-h-screen w-full max-w-[430px] flex-col bg-background">
+        {isLocalDev ? <DevFloatingSwitch /> : null}
         <div className="flex-1 pb-16">
           {loading ? (
             <div className="p-8 text-center text-sm text-muted-foreground">
