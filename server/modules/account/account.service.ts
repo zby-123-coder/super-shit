@@ -5,22 +5,31 @@ import {
 } from '@lark-apaas/fullstack-nestjs-core';
 import {
   appProfile,
-  guardianLink,
+  authCredential,
+  family,
   teachingLink,
 } from '@server/database/schema';
 import { and, eq, inArray } from 'drizzle-orm';
+import { randomBytes, scryptSync } from 'node:crypto';
 import type {
   AccountMeResponse,
   AppProfileDTO,
-  BindItemDTO,
+  CreateChildRequest,
+  FamilyDTO,
   RelatedUserDTO,
   SaveProfileRequest,
   UserRole,
 } from '@shared/api.interface';
 
 type ProfileRow = typeof appProfile.$inferSelect;
+type FamilyRow = typeof family.$inferSelect;
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+function hashPassword(password: string): string {
+  const salt = randomBytes(16).toString('hex');
+  return `${salt}:${scryptSync(password, salt, 64).toString('hex')}`;
+}
 
 @Injectable()
 export class AccountService {
@@ -30,7 +39,27 @@ export class AccountService {
     @Inject(DRIZZLE_DATABASE) private readonly db: PostgresJsDatabase,
   ) {}
 
-  private toDTO(row: ProfileRow): AppProfileDTO {
+  private generateInviteCode(): string {
+    let code = '';
+    for (let i = 0; i < 6; i += 1) {
+      code += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
+    }
+    return code;
+  }
+
+  private async familyNameOf(
+    familyId: string | null,
+  ): Promise<string | null> {
+    if (!familyId) return null;
+    const rows: FamilyRow[] = await this.db
+      .select()
+      .from(family)
+      .where(eq(family.id, familyId))
+      .limit(1);
+    return rows.length > 0 ? rows[0].name : null;
+  }
+
+  private toDTO(row: ProfileRow, familyName: string | null): AppProfileDTO {
     return {
       id: row.id,
       userId: row.userId,
@@ -42,15 +71,9 @@ export class AccountService {
       avatarUrl: row.avatarUrl ?? '',
       inviteCode: row.inviteCode ?? '',
       notifyMute: row.notifyMute ?? false,
+      familyId: row.familyId ?? null,
+      familyName,
     };
-  }
-
-  private generateInviteCode(): string {
-    let code = '';
-    for (let i = 0; i < 6; i += 1) {
-      code += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
-    }
-    return code;
   }
 
   async findProfile(userId: string): Promise<AppProfileDTO | null> {
@@ -60,7 +83,7 @@ export class AccountService {
       .where(eq(appProfile.userId, userId))
       .limit(1);
     if (rows.length === 0) return null;
-    return this.toDTO(rows[0]);
+    return this.toDTO(rows[0], await this.familyNameOf(rows[0].familyId));
   }
 
   /** 批量查询用户档案，用于把 userId 渲染成姓名 */
@@ -85,40 +108,57 @@ export class AccountService {
     return map;
   }
 
+  /** 家庭详情：家长与孩子成员都来自同一家庭 */
+  async getFamily(userId: string): Promise<FamilyDTO | null> {
+    const me = await this.findProfile(userId);
+    if (!me?.familyId) return null;
+    const rows: FamilyRow[] = await this.db
+      .select()
+      .from(family)
+      .where(eq(family.id, me.familyId))
+      .limit(1);
+    if (rows.length === 0) return null;
+    const members: ProfileRow[] = await this.db
+      .select()
+      .from(appProfile)
+      .where(eq(appProfile.familyId, me.familyId));
+    const toRelated = (row: ProfileRow): RelatedUserDTO => ({
+      userId: row.userId,
+      name: row.name ?? row.userId,
+      grade: row.grade ?? '',
+      role: row.role as UserRole,
+    });
+    return {
+      id: rows[0].id,
+      name: rows[0].name,
+      inviteCode: rows[0].inviteCode,
+      ownerUserId: rows[0].ownerUserId,
+      parents: members
+        .filter((row) => row.role === 'parent')
+        .map((row) => toRelated(row)),
+      students: members
+        .filter((row) => row.role === 'student')
+        .map((row) => toRelated(row)),
+    };
+  }
+
   async getMe(userId: string): Promise<AccountMeResponse> {
     const profile = await this.findProfile(userId);
     if (!profile) {
-      return { profile: null, children: [], students: [], guardians: [] };
+      return {
+        profile: null,
+        children: [],
+        students: [],
+        guardians: [],
+        family: null,
+      };
     }
-    const children: RelatedUserDTO[] = [];
-    const students: RelatedUserDTO[] = [];
-    const guardians: RelatedUserDTO[] = [];
+    const familyData = await this.getFamily(userId);
+    const children: RelatedUserDTO[] = familyData?.students ?? [];
+    const guardians: RelatedUserDTO[] = familyData?.parents ?? [];
 
-    if (profile.role === 'parent') {
-      const links = await this.db
-        .select()
-        .from(guardianLink)
-        .where(eq(guardianLink.parentUserId, userId));
-      const map = await this.getProfileMap(
-        links.map((link) => link.studentUserId),
-      );
-      links.forEach((link) => {
-        const item = map.get(link.studentUserId);
-        if (item) children.push(item);
-      });
-    } else if (profile.role === 'student') {
-      const links = await this.db
-        .select()
-        .from(guardianLink)
-        .where(eq(guardianLink.studentUserId, userId));
-      const map = await this.getProfileMap(
-        links.map((link) => link.parentUserId),
-      );
-      links.forEach((link) => {
-        const item = map.get(link.parentUserId);
-        if (item) guardians.push(item);
-      });
-    } else if (profile.role === 'teacher') {
+    let students: RelatedUserDTO[] = [];
+    if (profile.role === 'teacher') {
       const links = await this.db
         .select()
         .from(teachingLink)
@@ -130,25 +170,122 @@ export class AccountService {
         const item = map.get(link.studentUserId);
         if (item) students.push(item);
       });
-    } else {
+    } else if (profile.role === 'admin') {
       const rows: ProfileRow[] = await this.db
         .select()
         .from(appProfile)
         .where(eq(appProfile.role, 'student'));
-      rows.forEach((row: ProfileRow) => {
-        students.push({
-          userId: row.userId,
-          name: row.name ?? row.userId,
-          grade: row.grade ?? '',
-          role: 'student',
-        });
-      });
+      students = rows.map((row: ProfileRow) => ({
+        userId: row.userId,
+        name: row.name ?? row.userId,
+        grade: row.grade ?? '',
+        role: 'student',
+      }));
     }
 
-    return { profile, children, students, guardians };
+    return { profile, children, students, guardians, family: familyData };
   }
 
-  /** 老师是否带该学生（越权防护的统一入口） */
+  /** 老师凭学生邀请码建立带班关系（师生关系，与家庭模型互不干扰） */
+  async addStudentByCode(
+    teacherUserId: string,
+    code: string,
+  ): Promise<AppProfileDTO> {
+    const me = await this.findProfile(teacherUserId);
+    if (!me || me.role !== 'teacher') {
+      throw new ConflictException('只有老师可以添加学生');
+    }
+    const rows: ProfileRow[] = await this.db
+      .select()
+      .from(appProfile)
+      .where(eq(appProfile.inviteCode, code.trim().toUpperCase()))
+      .limit(1);
+    if (rows.length === 0) {
+      throw new ConflictException('邀请码不存在，请与学生确认');
+    }
+    const student = rows[0];
+    if (student.role !== 'student') {
+      throw new ConflictException('该邀请码不是学生');
+    }
+    const existing = await this.db
+      .select()
+      .from(teachingLink)
+      .where(
+        and(
+          eq(teachingLink.teacherUserId, teacherUserId),
+          eq(teachingLink.studentUserId, student.userId),
+        ),
+      )
+      .limit(1);
+    if (existing.length === 0) {
+      await this.db.insert(teachingLink).values({
+        teacherUserId: teacherUserId,
+        studentUserId: student.userId,
+      });
+    }
+    return this.toDTO(student, await this.familyNameOf(student.familyId));
+  }
+
+  /** 户主在家庭内直接创建孩子账号（孩子无需邀请码，也不存在跨家庭绑定） */
+  async createChild(
+    userId: string,
+    payload: CreateChildRequest,
+  ): Promise<AppProfileDTO> {
+    const me = await this.findProfile(userId);
+    if (!me || me.role !== 'parent') {
+      throw new ConflictException('只有家长可以创建孩子账号');
+    }
+    if (!me.familyId) {
+      throw new ConflictException('当前家庭信息异常');
+    }
+    const familyRows: FamilyRow[] = await this.db
+      .select()
+      .from(family)
+      .where(eq(family.id, me.familyId))
+      .limit(1);
+    if (familyRows.length === 0 || familyRows[0].ownerUserId !== userId) {
+      throw new ConflictException('只有户主可以创建孩子账号');
+    }
+    const loginName = payload.loginName.trim();
+    if (loginName.length < 4) {
+      throw new ConflictException('孩子登录名至少 4 位');
+    }
+    if (!payload.password || payload.password.length < 6) {
+      throw new ConflictException('初始密码至少 6 位');
+    }
+    const exists = await this.db
+      .select()
+      .from(authCredential)
+      .where(eq(authCredential.loginName, loginName))
+      .limit(1);
+    if (exists.length > 0) {
+      throw new ConflictException('该登录名已被使用');
+    }
+
+    const childId = `u_${randomBytes(8).toString('hex')}`;
+    const inviteCode = this.generateInviteCode();
+    await this.db.insert(appProfile).values({
+      userId: childId,
+      role: 'student',
+      name: payload.name.trim(),
+      grade: payload.grade ?? null,
+      inviteCode,
+      familyId: me.familyId,
+    });
+    await this.db.insert(authCredential).values({
+      userId: childId,
+      loginName,
+      passwordHash: hashPassword(payload.password),
+    });
+    const created: ProfileRow[] = await this.db
+      .select()
+      .from(appProfile)
+      .where(eq(appProfile.userId, childId))
+      .limit(1);
+    return this.toDTO(created[0], familyRows[0].name);
+  }
+
+  /** 老师是否带该学生（越权防护统一入口） */
   async canTeachStudent(
     teacherUserId: string,
     studentUserId: string,
@@ -166,22 +303,41 @@ export class AccountService {
     return links.length > 0;
   }
 
-  /** 家长是否可查看该学生 */
+  /** 家长是否可查看该学生：必须同一家庭 */
   async canViewStudent(
     parentUserId: string,
     studentUserId: string,
   ): Promise<boolean> {
-    const links = await this.db
+    const parent: ProfileRow[] = await this.db
       .select()
-      .from(guardianLink)
-      .where(
-        and(
-          eq(guardianLink.parentUserId, parentUserId),
-          eq(guardianLink.studentUserId, studentUserId),
-        ),
-      )
+      .from(appProfile)
+      .where(eq(appProfile.userId, parentUserId))
       .limit(1);
-    return links.length > 0;
+    if (parent.length === 0 || !parent[0].familyId) return false;
+    const student: ProfileRow[] = await this.db
+      .select()
+      .from(appProfile)
+      .where(eq(appProfile.userId, studentUserId))
+      .limit(1);
+    if (student.length === 0 || student[0].role !== 'student') return false;
+    return student[0].familyId === parent[0].familyId;
+  }
+
+  /** 通知对象：该学生的同家庭家长 */
+  async guardianIdsOf(studentUserId: string): Promise<string[]> {
+    const student: ProfileRow[] = await this.db
+      .select()
+      .from(appProfile)
+      .where(eq(appProfile.userId, studentUserId))
+      .limit(1);
+    if (student.length === 0 || !student[0].familyId) return [];
+    const members: ProfileRow[] = await this.db
+      .select()
+      .from(appProfile)
+      .where(eq(appProfile.familyId, student[0].familyId));
+    return members
+      .filter((row) => row.role === 'parent' && row.userId !== studentUserId)
+      .map((row) => row.userId);
   }
 
   async saveProfile(
@@ -208,226 +364,12 @@ export class AccountService {
         })
         .where(eq(appProfile.userId, userId))
         .returning();
-      return this.toDTO(updated[0]);
-    }
-
-    let inviteCode = this.generateInviteCode();
-    for (let i = 0; i < 5; i += 1) {
-      const conflict: ProfileRow[] = await this.db
-        .select()
-        .from(appProfile)
-        .where(eq(appProfile.inviteCode, inviteCode))
-        .limit(1);
-      if (conflict.length === 0) break;
-      inviteCode = this.generateInviteCode();
-    }
-
-    const inserted: ProfileRow[] = await this.db
-      .insert(appProfile)
-      .values({
-        userId,
-        role: payload.role,
-        name: payload.name,
-        phone: payload.phone ?? null,
-        grade: payload.grade ?? null,
-        subjectTags: payload.subjectTags ?? null,
-        avatarUrl: payload.avatarUrl ?? null,
-        inviteCode,
-        notifyMute: payload.notifyMute ?? false,
-      })
-      .returning();
-    return this.toDTO(inserted[0]);
-  }
-
-  /** 通过邀请码建立绑定关系：家长绑孩子 / 老师加学生 / 学生绑家长 */
-  async bindByCode(userId: string, code: string): Promise<BindItemDTO> {
-    const me = await this.findProfile(userId);
-    if (!me) {
-      throw new ConflictException('请先完善个人身份信息');
-    }
-    const targets: ProfileRow[] = await this.db
-      .select()
-      .from(appProfile)
-      .where(eq(appProfile.inviteCode, code.trim().toUpperCase()))
-      .limit(1);
-    if (targets.length === 0) {
-      throw new ConflictException('邀请码不存在，请核对后重试');
-    }
-    const target = targets[0];
-    if (target.userId === userId) {
-      throw new ConflictException('不能绑定自己');
-    }
-
-    if (me.role === 'parent' && target.role === 'student') {
-      return this.createGuardianLink(userId, target);
-    }
-    if (me.role === 'teacher' && target.role === 'student') {
-      return this.createTeachingLink(userId, target);
-    }
-    if (me.role === 'student' && target.role === 'parent') {
-      return this.createGuardianLink(target.userId, targets[0], true);
-    }
-    throw new ConflictException('当前身份与该邀请码不匹配，无法建立绑定');
-  }
-
-  private async createGuardianLink(
-    parentId: string,
-    studentRow: ProfileRow,
-    reverse = false,
-  ): Promise<BindItemDTO> {
-    const existing = await this.db
-      .select()
-      .from(guardianLink)
-      .where(
-        and(
-          eq(guardianLink.parentUserId, parentId),
-          eq(guardianLink.studentUserId, studentRow.userId),
-        ),
-      )
-      .limit(1);
-    if (existing.length > 0) {
-      throw new ConflictException('已经绑定过该学生');
-    }
-    await this.db.insert(guardianLink).values({
-      parentUserId: parentId,
-      studentUserId: studentRow.userId,
-    });
-    return this.toBindItem(reverse ? parentId : studentRow.userId, studentRow);
-  }
-
-  private async createTeachingLink(
-    teacherId: string,
-    studentRow: ProfileRow,
-  ): Promise<BindItemDTO> {
-    const existing = await this.db
-      .select()
-      .from(teachingLink)
-      .where(
-        and(
-          eq(teachingLink.teacherUserId, teacherId),
-          eq(teachingLink.studentUserId, studentRow.userId),
-        ),
-      )
-      .limit(1);
-    if (existing.length > 0) {
-      throw new ConflictException('已经带过该学生');
-    }
-    await this.db.insert(teachingLink).values({
-      teacherUserId: teacherId,
-      studentUserId: studentRow.userId,
-    });
-    return this.toBindItem(studentRow.userId, studentRow);
-  }
-
-  private toBindItem(
-    userId: string,
-    row: ProfileRow,
-  ): BindItemDTO {
-    return {
-      id: row.id,
-      userId,
-      name: row.name ?? row.userId,
-      grade: row.grade ?? '',
-    };
-  }
-
-  async listBindings(userId: string): Promise<{
-    children: BindItemDTO[];
-    students: BindItemDTO[];
-    guardians: BindItemDTO[];
-  }> {
-    const me = await this.findProfile(userId);
-    if (!me) return { children: [], students: [], guardians: [] };
-    const result: {
-      children: BindItemDTO[];
-      students: BindItemDTO[];
-      guardians: BindItemDTO[];
-    } = { children: [], students: [], guardians: [] };
-
-    if (me.role === 'parent') {
-      const links = await this.db
-        .select()
-        .from(guardianLink)
-        .where(eq(guardianLink.parentUserId, userId));
-      const map = await this.getProfileMap(
-        links.map((link) => link.studentUserId),
+      return this.toDTO(
+        updated[0],
+        await this.familyNameOf(updated[0].familyId),
       );
-      links.forEach((link) => {
-        const item = map.get(link.studentUserId);
-        if (item) {
-          result.children.push({
-            id: link.id,
-            userId: item.userId,
-            name: item.name,
-            grade: item.grade,
-          });
-        }
-      });
-    } else if (me.role === 'student') {
-      const links = await this.db
-        .select()
-        .from(guardianLink)
-        .where(eq(guardianLink.studentUserId, userId));
-      const map = await this.getProfileMap(
-        links.map((link) => link.parentUserId),
-      );
-      links.forEach((link) => {
-        const item = map.get(link.parentUserId);
-        if (item) {
-          result.guardians.push({
-            id: link.id,
-            userId: item.userId,
-            name: item.name,
-            grade: item.grade,
-          });
-        }
-      });
-    } else {
-      const links = await this.db
-        .select()
-        .from(teachingLink)
-        .where(eq(teachingLink.teacherUserId, userId));
-      const map = await this.getProfileMap(
-        links.map((link) => link.studentUserId),
-      );
-      links.forEach((link) => {
-        const item = map.get(link.studentUserId);
-        if (item) {
-          result.students.push({
-            id: link.id,
-            userId: item.userId,
-            name: item.name,
-            grade: item.grade,
-          });
-        }
-      });
     }
-    return result;
-  }
 
-  async unbind(linkId: string, userId: string): Promise<void> {
-    const guardianRows = await this.db
-      .select()
-      .from(guardianLink)
-      .where(eq(guardianLink.id, linkId))
-      .limit(1);
-    if (guardianRows.length > 0) {
-      const link = guardianRows[0];
-      if (link.parentUserId !== userId && link.studentUserId !== userId) {
-        throw new ConflictException('无权解除该绑定关系');
-      }
-      await this.db
-        .delete(guardianLink)
-        .where(eq(guardianLink.id, linkId));
-      return;
-    }
-    const teachingRows = await this.db
-      .select()
-      .from(teachingLink)
-      .where(eq(teachingLink.id, linkId))
-      .limit(1);
-    if (teachingRows.length > 0) {
-      await this.db.delete(teachingLink).where(eq(teachingLink.id, linkId));
-    }
+    throw new ConflictException('账号档案不存在，请先注册');
   }
 }

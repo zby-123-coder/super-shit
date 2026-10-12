@@ -7,7 +7,6 @@ import {
   appProfile,
   article,
   course,
-  guardianLink,
   lessonAccount,
   lessonLedger,
   studyProgress,
@@ -178,10 +177,19 @@ export class DemoService {
     });
 
     if (me.role === 'parent') {
-      await this.db.insert(guardianLink).values({
-        parentUserId: userId,
-        studentUserId: demoUserId,
-      });
+      // 演示学生直接成为该家庭的孩子成员
+      const parentProfile = await this.db
+        .select({ familyId: appProfile.familyId })
+        .from(appProfile)
+        .where(eq(appProfile.userId, userId))
+        .limit(1);
+      const familyId = parentProfile[0]?.familyId;
+      if (familyId) {
+        await this.db
+          .update(appProfile)
+          .set({ familyId })
+          .where(eq(appProfile.userId, demoUserId));
+      }
     } else if (me.role === 'teacher') {
       await this.db.insert(teachingLink).values({
         teacherUserId: userId,
@@ -212,15 +220,23 @@ export class DemoService {
     // 关联到的演示学生账号
     const demoStudentIds: string[] = [];
     if (me.role === 'parent') {
-      const links = await this.db
-        .select()
-        .from(guardianLink)
-        .where(eq(guardianLink.parentUserId, userId));
-      links.forEach((link) => {
-        if (link.studentUserId.startsWith('demo_')) {
-          demoStudentIds.push(link.studentUserId);
-        }
-      });
+      const meProfile = await this.db
+        .select({ familyId: appProfile.familyId })
+        .from(appProfile)
+        .where(eq(appProfile.userId, userId))
+        .limit(1);
+      const familyId = meProfile[0]?.familyId;
+      if (familyId) {
+        const members = await this.db
+          .select({ userId: appProfile.userId })
+          .from(appProfile)
+          .where(eq(appProfile.familyId, familyId));
+        members.forEach((member) => {
+          if (member.userId.startsWith('demo_')) {
+            demoStudentIds.push(member.userId);
+          }
+        });
+      }
     }
     if (me.role === 'teacher' || me.role === 'admin') {
       const links = await this.db
@@ -250,9 +266,6 @@ export class DemoService {
       await this.db
         .delete(studyProgress)
         .where(eq(studyProgress.studentUserId, demoId));
-      await this.db
-        .delete(guardianLink)
-        .where(eq(guardianLink.studentUserId, demoId));
       await this.db
         .delete(teachingLink)
         .where(eq(teachingLink.studentUserId, demoId));

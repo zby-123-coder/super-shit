@@ -56,6 +56,25 @@ export interface RegisterRequest {
   phone?: string;
   grade?: string;
   subjectTags?: string;
+  /** 学生注册必须提供：要加入的家庭邀请码 */
+  familyInviteCode?: string;
+}
+
+export interface FamilyDTO {
+  id: string;
+  name: string;
+  inviteCode: string;
+  ownerUserId: string;
+  parents: RelatedUserDTO[];
+  students: RelatedUserDTO[];
+}
+
+/** 户主在家庭内直接创建孩子账号 */
+export interface CreateChildRequest {
+  loginName: string;
+  password: string;
+  name: string;
+  grade?: string;
 }
 
 export interface LoginRequest {
@@ -69,6 +88,7 @@ export interface AuthResponse {
   role: UserRole;
   name: string;
   inviteCode: string;
+  familyName: string;
 }
 
 export const USER_ROLE_LIST: UserRole[] = [
@@ -97,6 +117,8 @@ export interface AppProfileDTO {
   avatarUrl: string;
   inviteCode: string;
   notifyMute: boolean;
+  familyId: string | null;
+  familyName: string | null;
 }
 
 export interface RelatedUserDTO {
@@ -111,6 +133,7 @@ export interface AccountMeResponse {
   children: RelatedUserDTO[];
   students: RelatedUserDTO[];
   guardians: RelatedUserDTO[];
+  family: FamilyDTO | null;
 }
 
 export interface SaveProfileRequest {

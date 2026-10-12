@@ -23,6 +23,7 @@ const LoginPage = () => {
   const [role, setRole] = useState<UserRole>('parent');
   const [name, setName] = useState<string>('');
   const [extra, setExtra] = useState<string>('');
+  const [familyCode, setFamilyCode] = useState<string>('');
   const [submitting, setSubmitting] = useState<boolean>(false);
 
   const enter = async (token: string) => {
@@ -72,8 +73,16 @@ const LoginPage = () => {
         name: name.trim(),
         grade: role === 'student' ? extra : undefined,
         subjectTags: role === 'teacher' ? extra : undefined,
+        familyInviteCode:
+          role === 'student' ? familyCode.trim().toUpperCase() : undefined,
       });
-      toast.success('注册成功');
+      toast.success(
+        role === 'parent'
+          ? `家庭「${result.familyName}」已创建`
+          : role === 'student'
+            ? `已加入家庭「${result.familyName}」`
+            : '注册成功',
+      );
       await enter(result.token);
     } catch (error) {
       toast.error('注册失败：登录名可能已被占用');
@@ -168,6 +177,27 @@ const LoginPage = () => {
                 }
                 aria-label="补充信息"
               />
+              {role === 'student' ? (
+                <Input
+                  value={familyCode}
+                  onChange={(event) => setFamilyCode(event.target.value)}
+                  placeholder="家庭邀请码（向家长索取，必填）"
+                  aria-label="家庭邀请码"
+                />
+              ) : null}
+              {role === 'parent' ? (
+                <>
+                  <Input
+                    value={familyCode}
+                    onChange={(event) => setFamilyCode(event.target.value)}
+                    placeholder="家庭邀请码（选填，加入已有家庭）"
+                    aria-label="家庭邀请码"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    留空则创建新家庭（你成为户主）；填写则加入已有家庭
+                  </p>
+                </>
+              ) : null}
               <Button onClick={doRegister} disabled={submitting}>
                 注册并进入
               </Button>

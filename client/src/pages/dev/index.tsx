@@ -9,13 +9,14 @@ import { authApi } from '@client/src/api';
 import { refreshAccount, useAccount } from '@client/src/hooks/useAccount';
 import { setToken } from '@client/src/utils/auth-token';
 
-/** 仅本地开发可见的快捷账号（联调脚本 scripts/itest.sh 创建） */
+/** 仅本地开发可见的快捷账号（联调脚本 scripts/itest-family.sh 创建） */
 const DEV_ACCOUNTS: { loginName: string; label: string }[] = [
   { loginName: 'admin001', label: '管理员 · 运营小赵' },
+  { loginName: 'parent001', label: '家长 · 林爸（户主）' },
+  { loginName: 'parent002', label: '家长 · 林妈（第二位）' },
+  { loginName: 'child001', label: '孩子 · 林小满' },
   { loginName: 'teacher001', label: '老师 · 周老师' },
   { loginName: 'teacher002', label: '老师 · 陈老师' },
-  { loginName: 'student001', label: '学生 · 林小满' },
-  { loginName: 'parent001', label: '家长 · 林爸' },
 ];
 
 const DevSwitchPage = () => {

@@ -6,7 +6,6 @@ import {
 import {
   appProfile,
   course,
-  guardianLink,
   lessonAccount,
   lessonLedger,
 } from '@server/database/schema';
@@ -45,11 +44,8 @@ export class CourseService {
     const role: UserRole = me.role;
     if (role === 'student') return [userId];
     if (role === 'parent') {
-      const links = await this.db
-        .select()
-        .from(guardianLink)
-        .where(eq(guardianLink.parentUserId, userId));
-      return links.map((link) => link.studentUserId);
+      const familyData = await this.accountService.getFamily(userId);
+      return (familyData?.students ?? []).map((item) => item.userId);
     }
     if (role === 'teacher') {
       return [];
@@ -62,11 +58,7 @@ export class CourseService {
   }
 
   private async guardianIdsOf(studentUserId: string): Promise<string[]> {
-    const links = await this.db
-      .select()
-      .from(guardianLink)
-      .where(eq(guardianLink.studentUserId, studentUserId));
-    return links.map((link) => link.parentUserId);
+    return this.accountService.guardianIdsOf(studentUserId);
   }
 
   async listWeek(

@@ -6,7 +6,6 @@ import {
 import {
   appProfile,
   course,
-  guardianLink,
   lessonAccount,
   lessonLedger,
   studyProgress,
@@ -56,17 +55,13 @@ export class ReportService {
     userId: string,
     studentUserId?: string,
   ): Promise<WeeklyReport> {
-    // 家长未指定孩子时默认看第一个孩子
+    // 家长未指定孩子时默认看家庭里第一个孩子
     let target = studentUserId || '';
     if (!target) {
       const me = await this.accountService.findProfile(userId);
       if (me?.role === 'parent') {
-        const links = await this.db
-          .select({ studentUserId: guardianLink.studentUserId })
-          .from(guardianLink)
-          .where(eq(guardianLink.parentUserId, userId))
-          .limit(1);
-        if (links.length > 0) target = links[0].studentUserId;
+        const meData = await this.accountService.getMe(userId);
+        target = meData.children[0]?.userId ?? '';
       }
     }
     if (!target) target = userId;

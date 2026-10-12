@@ -13,8 +13,9 @@ import type {
   ArticleDTO,
   ArticleListResponse,
   AssignRelationRequest,
-  BindItemDTO,
   CheckinDTO,
+  CreateChildRequest,
+  FamilyDTO,
   CourseDTO,
   CourseWeekResponse,
   CreateCourseRequest,
@@ -79,19 +80,18 @@ export const accountApi = {
     request({ url: '/api/account/me', method: 'GET' }),
   saveProfile: (data: SaveProfileRequest): Promise<AppProfileDTO> =>
     request({ url: '/api/account/profile', method: 'POST', data }),
-  bind: (inviteCode: string): Promise<{ name: string }> =>
+  createChild: (data: CreateChildRequest): Promise<AppProfileDTO> =>
+    request({ url: '/api/account/child', method: 'POST', data }),
+  getFamily: (): Promise<FamilyDTO | null> =>
+    request({ url: '/api/account/family', method: 'GET' }),
+  addStudent: (
+    inviteCode: string,
+  ): Promise<{ success: boolean; studentName: string }> =>
     request({
-      url: '/api/account/bind',
+      url: '/api/account/teach',
       method: 'POST',
       data: { inviteCode },
     }),
-  unbind: (id: string): Promise<{ success: boolean }> =>
-    request({ url: `/api/account/bind/${id}`, method: 'DELETE' }),
-  listBindings: (): Promise<{
-    children: BindItemDTO[];
-    students: BindItemDTO[];
-    guardians: BindItemDTO[];
-  }> => request({ url: '/api/account/bindings', method: 'GET' }),
 };
 
 export const courseApi = {

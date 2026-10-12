@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Inject,
   Injectable,
@@ -13,6 +14,7 @@ import {
   appProfile,
   authCredential,
   authSession,
+  family,
 } from '@server/database/schema';
 import { and, eq, isNull } from 'drizzle-orm';
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
@@ -131,6 +133,54 @@ export class AuthService {
 
     const userId = this.newUserId();
     const inviteCode = randomBytes(3).toString('hex').toUpperCase();
+    let familyId: string | null = null;
+    let familyName = '';
+
+    if (payload.role === 'parent') {
+      const code = (payload.familyInviteCode ?? '').trim().toUpperCase();
+      if (code) {
+        // 填了家庭邀请码 = 加入已有家庭（第二位家长）
+        const families = await this.db
+          .select()
+          .from(family)
+          .where(eq(family.inviteCode, code))
+          .limit(1);
+        if (families.length === 0) {
+          throw new BadRequestException('家庭邀请码不存在，请与户主确认');
+        }
+        familyId = families[0].id;
+        familyName = families[0].name;
+      } else {
+        // 第一位家长注册 = 创建家庭，成为户主
+        familyName = `${payload.name.trim()}的家庭`;
+        const created = await this.db
+          .insert(family)
+          .values({
+            name: familyName,
+            ownerUserId: userId,
+            inviteCode,
+          })
+          .returning();
+        familyId = created[0].id;
+      }
+    } else if (payload.role === 'student') {
+      // 学生注册 = 凭家庭邀请码加入已有家庭（杜绝绑定别人家孩子）
+      const code = (payload.familyInviteCode ?? '').trim().toUpperCase();
+      if (!code) {
+        throw new BadRequestException('学生注册需要填写家庭邀请码');
+      }
+      const families = await this.db
+        .select()
+        .from(family)
+        .where(eq(family.inviteCode, code))
+        .limit(1);
+      if (families.length === 0) {
+        throw new BadRequestException('家庭邀请码不存在，请与家长确认');
+      }
+      familyId = families[0].id;
+      familyName = families[0].name;
+    }
+
     await this.db.insert(appProfile).values({
       userId,
       role: payload.role,
@@ -139,6 +189,7 @@ export class AuthService {
       grade: payload.grade ?? null,
       subjectTags: payload.subjectTags ?? null,
       inviteCode,
+      familyId,
     });
     await this.db.insert(authCredential).values({
       userId,
@@ -152,6 +203,7 @@ export class AuthService {
       role: payload.role,
       name: payload.name.trim(),
       inviteCode,
+      familyName,
     };
   }
 
@@ -183,12 +235,20 @@ export class AuthService {
     clearLoginFailures(loginName, ip);
     const profile = profiles[0];
     const token = await this.issueSession(credential.userId, profile.role);
+    const familyName = profile.familyId
+      ? ((await this.db
+          .select()
+          .from(family)
+          .where(eq(family.id, profile.familyId))
+          .limit(1))[0]?.name ?? '')
+      : '';
     return {
       token,
       userId: credential.userId,
       role: profile.role as UserRole,
       name: profile.name ?? '',
       inviteCode: profile.inviteCode ?? '',
+      familyName,
     };
   }
 

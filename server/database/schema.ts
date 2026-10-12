@@ -364,6 +364,19 @@ export const guardianLink = pgTable("guardian_link", {
   uniqueIndex("uk_guardian_pair").on(table.parentUserId, table.studentUserId),
 ]);
 
+export const family = pgTable("family", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: varchar("name", { length: 64 }).notNull(),
+  ownerUserId: varchar("owner_user_id", { length: 64 }).notNull(),
+  inviteCode: varchar("invite_code", { length: 16 }).notNull().unique(),
+  createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  createdBy: varchar("_created_by", { length: 64 }),
+  updatedAt: customTimestamptz("_updated_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedBy: varchar("_updated_by", { length: 64 }),
+}, (table) => [
+  uniqueIndex("uk_family_invite").on(table.inviteCode),
+]);
+
 export const appProfile = pgTable("app_profile", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: varchar("user_id", { length: 64 }).notNull().unique(),
@@ -375,6 +388,7 @@ export const appProfile = pgTable("app_profile", {
   avatarUrl: text("avatar_url"),
   inviteCode: varchar("invite_code", { length: 16 }).unique(),
   notifyMute: boolean("notify_mute").notNull().default(false),
+  familyId: uuid("family_id"),
   // System field: Creation time (auto-filled, do not modify)
   createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   // System field: Creator (auto-filled, do not modify)

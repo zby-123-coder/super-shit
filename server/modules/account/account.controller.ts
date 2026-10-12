@@ -1,19 +1,12 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Post,
-  Req,
-} from '@nestjs/common';
-import { IsBoolean, IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
+import { Body, Controller, Get, Post, Req } from '@nestjs/common';
+import { IsBoolean, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { Type } from 'class-transformer';
 import type { Request } from 'express';
 import type {
   AccountMeResponse,
   AppProfileDTO,
-  BindByCodeRequest,
+  CreateChildRequest,
+  FamilyDTO,
   SaveProfileRequest,
 } from '@shared/api.interface';
 import { AccountService } from './account.service';
@@ -52,10 +45,31 @@ class SaveProfileDto implements SaveProfileRequest {
   notifyMute?: boolean;
 }
 
-class BindByCodeDto implements BindByCodeRequest {
+class TeachDto {
   @IsString()
   @MaxLength(16)
   inviteCode!: string;
+}
+
+class CreateChildDto implements CreateChildRequest {
+  @IsString()
+  @MinLength(4)
+  @MaxLength(64)
+  loginName!: string;
+
+  @IsString()
+  @MinLength(6)
+  @MaxLength(64)
+  password!: string;
+
+  @IsString()
+  @MaxLength(64)
+  name!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  grade?: string;
 }
 
 @Controller('api/account')
@@ -66,6 +80,12 @@ export class AccountController {
   async getMe(@Req() req: Request): Promise<AccountMeResponse> {
     const { userId } = req.userContext;
     return this.accountService.getMe(userId);
+  }
+
+  @Get('family')
+  async getFamily(@Req() req: Request): Promise<FamilyDTO | null> {
+    const { userId } = req.userContext;
+    return this.accountService.getFamily(userId);
   }
 
   @Post('profile')
@@ -85,22 +105,29 @@ export class AccountController {
     });
   }
 
-  @Post('bind')
-  async bind(@Req() req: Request, @Body() dto: BindByCodeDto) {
+  /** 老师凭学生邀请码添加学生 */
+  @Post('teach')
+  async addStudent(@Req() req: Request, @Body() dto: TeachDto) {
     const { userId } = req.userContext;
-    return this.accountService.bindByCode(userId, dto.inviteCode);
+    const student = await this.accountService.addStudentByCode(
+      userId,
+      dto.inviteCode,
+    );
+    return { success: true, studentName: student.name };
   }
 
-  @Get('bindings')
-  async listBindings(@Req() req: Request) {
+  /** 户主在家庭内创建孩子账号 */
+  @Post('child')
+  async createChild(
+    @Req() req: Request,
+    @Body() dto: CreateChildDto,
+  ): Promise<AppProfileDTO> {
     const { userId } = req.userContext;
-    return this.accountService.listBindings(userId);
-  }
-
-  @Delete('bind/:id')
-  async unbind(@Req() req: Request, @Param('id') id: string) {
-    const { userId } = req.userContext;
-    await this.accountService.unbind(id, userId);
-    return { success: true };
+    return this.accountService.createChild(userId, {
+      loginName: dto.loginName,
+      password: dto.password,
+      name: dto.name,
+      grade: dto.grade,
+    });
   }
 }

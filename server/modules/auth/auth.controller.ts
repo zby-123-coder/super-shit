@@ -43,6 +43,11 @@ class RegisterDto implements RegisterRequest {
   @IsString()
   @MaxLength(255)
   subjectTags?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(16)
+  familyInviteCode?: string;
 }
 
 class LoginDto implements LoginRequest {
@@ -67,6 +72,7 @@ export class AuthController {
       phone: dto.phone,
       grade: dto.grade,
       subjectTags: dto.subjectTags,
+      familyInviteCode: dto.familyInviteCode,
     });
   }
 

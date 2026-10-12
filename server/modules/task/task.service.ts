@@ -3,12 +3,7 @@ import {
   DRIZZLE_DATABASE,
   type PostgresJsDatabase,
 } from '@lark-apaas/fullstack-nestjs-core';
-import {
-  guardianLink,
-  studyTask,
-  taskCheckin,
-  teachingLink,
-} from '@server/database/schema';
+import { studyTask, taskCheckin, teachingLink } from '@server/database/schema';
 import { desc, eq, inArray } from 'drizzle-orm';
 import type {
   CheckinDTO,
@@ -34,14 +29,6 @@ export class TaskService {
     private readonly accountService: AccountService,
     private readonly messageService: MessageService,
   ) {}
-
-  private async childrenOf(parentId: string): Promise<string[]> {
-    const links = await this.db
-      .select()
-      .from(guardianLink)
-      .where(eq(guardianLink.parentUserId, parentId));
-    return links.map((link) => link.studentUserId);
-  }
 
   private async studentsOf(teacherId: string): Promise<string[]> {
     const links = await this.db
@@ -384,12 +371,9 @@ export class TaskService {
     }
   }
 
+  /** 通知对象：该学生的同家庭家长 */
   private async guardiansOf(studentUserId: string): Promise<string[]> {
-    const links = await this.db
-      .select()
-      .from(guardianLink)
-      .where(eq(guardianLink.studentUserId, studentUserId));
-    return links.map((link) => link.parentUserId);
+    return this.accountService.guardianIdsOf(studentUserId);
   }
 
   async pendingReviews(userId: string): Promise<TaskDTO[]> {

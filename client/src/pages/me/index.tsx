@@ -16,10 +16,15 @@ import {
 import { Input } from '@client/src/components/ui/input';
 import { EmptyBlock, LoadingBlock, PageHeader } from '@client/src/components/PageShell';
 import { useNavigate } from 'react-router-dom';
-import { accountApi, authApi, demoApi, messageApi } from '@client/src/api';
+import {
+  accountApi,
+  authApi,
+  demoApi,
+  messageApi,
+} from '@client/src/api';
 import { refreshAccount, useAccount } from '@client/src/hooks/useAccount';
 import { clearToken } from '@client/src/utils/auth-token';
-import type { BindItemDTO, MessageDTO, UserRole } from '@shared/api.interface';
+import type { MessageDTO, UserRole } from '@shared/api.interface';
 
 const ROLE_LABEL: Record<UserRole, string> = {
   student: '学生',
@@ -32,15 +37,17 @@ const MePage = () => {
   const { data, reload } = useAccount();
   const navigate = useNavigate();
   const profile = data?.profile;
-  const [bindings, setBindings] = useState<{
-    children: BindItemDTO[];
-    students: BindItemDTO[];
-    guardians: BindItemDTO[];
-  }>({ children: [], students: [], guardians: [] });
   const [messages, setMessages] = useState<MessageDTO[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [seeding, setSeeding] = useState<boolean>(false);
-  const [inviteCode, setInviteCode] = useState<string>('');
+  const [childOpen, setChildOpen] = useState<boolean>(false);
+  const [childForm, setChildForm] = useState<{
+    name: string;
+    grade: string;
+    loginName: string;
+    password: string;
+  }>({ name: '', grade: '', loginName: '', password: '' });
+  const [studentCode, setStudentCode] = useState<string>('');
   const [editOpen, setEditOpen] = useState<boolean>(false);
   const [form, setForm] = useState<{
     role: UserRole;
@@ -52,11 +59,7 @@ const MePage = () => {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [bindResult, messageResult] = await Promise.all([
-        accountApi.listBindings(),
-        messageApi.list(),
-      ]);
-      setBindings(bindResult);
+      const messageResult = await messageApi.list();
       setMessages(messageResult.items);
     } catch (error) {
       toast.error('加载失败');
@@ -82,30 +85,24 @@ const MePage = () => {
 
   if (!profile) return <LoadingBlock />;
 
-  const handleBind = async () => {
-    if (!inviteCode.trim()) {
-      toast.error('请输入邀请码');
+  const submitChild = async () => {
+    if (!childForm.name.trim() || !childForm.loginName.trim()) {
+      toast.error('请填写孩子姓名与登录名');
       return;
     }
     try {
-      const result = await accountApi.bind(inviteCode.trim());
-      toast.success(`已绑定 ${result.name}`);
-      setInviteCode('');
-      await load();
+      await accountApi.createChild({
+        loginName: childForm.loginName.trim(),
+        password: childForm.password,
+        name: childForm.name.trim(),
+        grade: childForm.grade.trim(),
+      });
+      toast.success(`孩子「${childForm.name.trim()}」已加入家庭`);
+      setChildOpen(false);
+      setChildForm({ name: '', grade: '', loginName: '', password: '' });
       await reload();
     } catch (error) {
-      toast.error('绑定失败，请核对邀请码');
-    }
-  };
-
-  const handleUnbind = async (id: string) => {
-    try {
-      await accountApi.unbind(id);
-      toast.success('已解除绑定');
-      await load();
-      await reload();
-    } catch (error) {
-      toast.error('解绑失败');
+      toast.error('创建失败：登录名可能已被使用');
     }
   };
 
@@ -124,12 +121,6 @@ const MePage = () => {
       toast.error('保存失败');
     }
   };
-
-  const bindingList = [
-    ...bindings.children.map((item) => ({ ...item, tag: '孩子' })),
-    ...bindings.students.map((item) => ({ ...item, tag: '学生' })),
-    ...bindings.guardians.map((item) => ({ ...item, tag: '家长' })),
-  ];
 
   return (
     <div>
@@ -237,46 +228,176 @@ const MePage = () => {
           </Link>
         ) : null}
 
-        <Card>
-          <CardContent className="p-4">
-            <h2 className="mb-2 text-sm font-medium">绑定关系</h2>
-            <div className="mb-3 flex gap-2">
-              <Input
-                value={inviteCode}
-                onChange={(event) => setInviteCode(event.target.value)}
-                placeholder="输入对方邀请码"
-                aria-label="邀请码"
-              />
-              <Button size="sm" onClick={handleBind}>
-                绑定
-              </Button>
-            </div>
-            {bindingList.length === 0 ? (
-              <EmptyBlock text="暂无绑定关系" />
-            ) : (
-              <div className="flex flex-col gap-2">
-                {bindingList.map((item) => (
+        {data?.family ? (
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-medium">
+                    家庭：{data.family.name}
+                  </h2>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    家庭邀请码：
+                    <span className="font-semibold text-foreground">
+                      {data.family.inviteCode}
+                    </span>
+                    （另一位家长注册时填写即可加入）
+                  </p>
+                </div>
+                {profile.role === 'parent' ? (
+                  <Button
+                    size="sm"
+                    onClick={() => setChildOpen(true)}
+                  >
+                    添加孩子
+                  </Button>
+                ) : null}
+              </div>
+              <div className="mt-3 flex flex-col gap-2">
+                {data.family.parents.map((member) => (
                   <div
-                    key={item.id}
+                    key={member.userId}
                     className="flex items-center justify-between rounded-lg border p-2"
                   >
                     <div className="flex items-center gap-2">
-                      <span className="text-sm">{item.name}</span>
-                      <Badge variant="secondary">{item.tag}</Badge>
+                      <span className="text-sm">{member.name}</span>
+                      <Badge variant="secondary">
+                        {member.userId === data.family?.ownerUserId
+                          ? '户主'
+                          : '家长'}
+                      </Badge>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleUnbind(item.id)}
-                    >
-                      解绑
-                    </Button>
+                    {member.userId === profile.userId ? (
+                      <span className="text-xs text-muted-foreground">我</span>
+                    ) : null}
+                  </div>
+                ))}
+                {data.family.students.map((member) => (
+                  <div
+                    key={member.userId}
+                    className="flex items-center justify-between rounded-lg border p-2"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">{member.name}</span>
+                      <Badge variant="secondary">孩子</Badge>
+                      {member.grade ? (
+                        <span className="text-xs text-muted-foreground">
+                          {member.grade}
+                        </span>
+                      ) : null}
+                    </div>
+                    {member.userId === profile.userId ? (
+                      <span className="text-xs text-muted-foreground">我</span>
+                    ) : null}
                   </div>
                 ))}
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {profile.role === 'teacher' ? (
+          <Card>
+            <CardContent className="p-4">
+              <h2 className="mb-2 text-sm font-medium">我的学生</h2>
+              <div className="mb-3 flex gap-2">
+                <Input
+                  value={studentCode}
+                  onChange={(event) => setStudentCode(event.target.value)}
+                  placeholder="输入学生邀请码"
+                  aria-label="学生邀请码"
+                />
+                <Button
+                  size="sm"
+                  onClick={async () => {
+                    if (!studentCode.trim()) {
+                      toast.error('请输入学生邀请码');
+                      return;
+                    }
+                    try {
+                      const result = await accountApi.addStudent(
+                        studentCode.trim(),
+                      );
+                      toast.success(`已添加学生 ${result.studentName}`);
+                      setStudentCode('');
+                      await reload();
+                    } catch (error) {
+                      toast.error('添加失败，请核对邀请码');
+                    }
+                  }}
+                >
+                  添加
+                </Button>
+              </div>
+              {(data?.students ?? []).map((student) => (
+                <div
+                  key={student.userId}
+                  className="flex items-center justify-between rounded-lg border p-2"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">{student.name}</span>
+                    <Badge variant="secondary">学生</Badge>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        ) : null}
+
+        <Dialog open={childOpen} onOpenChange={setChildOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>添加孩子</DialogTitle>
+            </DialogHeader>
+            <div className="flex flex-col gap-3">
+              <Input
+                value={childForm.name}
+                onChange={(event) =>
+                  setChildForm((prev) => ({ ...prev, name: event.target.value }))
+                }
+                placeholder="孩子姓名"
+                aria-label="孩子姓名"
+              />
+              <Input
+                value={childForm.grade}
+                onChange={(event) =>
+                  setChildForm((prev) => ({
+                    ...prev,
+                    grade: event.target.value,
+                  }))
+                }
+                placeholder="年级（选填）"
+                aria-label="孩子年级"
+              />
+              <Input
+                value={childForm.loginName}
+                onChange={(event) =>
+                  setChildForm((prev) => ({
+                    ...prev,
+                    loginName: event.target.value,
+                  }))
+                }
+                placeholder="孩子登录名（≥4 位）"
+                aria-label="孩子登录名"
+              />
+              <Input
+                type="password"
+                value={childForm.password}
+                onChange={(event) =>
+                  setChildForm((prev) => ({
+                    ...prev,
+                    password: event.target.value,
+                  }))
+                }
+                placeholder="初始密码（≥6 位）"
+                aria-label="孩子初始密码"
+              />
+            </div>
+            <DialogFooter>
+              <Button onClick={submitChild}>创建并加入家庭</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <Card>
           <CardContent className="p-4">
