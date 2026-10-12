@@ -14,7 +14,6 @@ const ROLES: { role: UserRole; label: string; desc: string }[] = [
   { role: 'student', label: '学生', desc: '任务打卡、看课表进度' },
   { role: 'parent', label: '家长', desc: '看孩子学情与课时' },
   { role: 'teacher', label: '老师', desc: '带班、批阅、消课' },
-  { role: 'admin', label: '管理员', desc: '用户教务内容与数据' },
 ];
 
 const LoginPage = () => {
@@ -172,6 +171,9 @@ const LoginPage = () => {
               <Button onClick={doRegister} disabled={submitting}>
                 注册并进入
               </Button>
+              <p className="text-center text-xs text-muted-foreground">
+                管理员账号由已有管理员在后台提升，暂不开放注册
+              </p>
             </TabsContent>
           </Tabs>
         </CardContent>

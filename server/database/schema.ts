@@ -128,12 +128,12 @@ export const noticeMessage = pgTable("notice_message", {
   // System field: Creation time (auto-filled, do not modify)
   createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   // System field: Creator (auto-filled, do not modify)
-  createdBy: userProfile("_created_by").default(sql`CASE
+  createdBy: varchar("_created_by", { length: 64 }).default(sql`CASE
     WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
   // System field: Update time (auto-filled, do not modify)
   updatedAt: customTimestamptz("_updated_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   // System field: Updater (auto-filled, do not modify)
-  updatedBy: userProfile("_updated_by").default(sql`CASE
+  updatedBy: varchar("_updated_by", { length: 64 }).default(sql`CASE
     WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
 }, (table) => [
   index("idx_message_user").on(table.userId, table.createdAt),
@@ -146,12 +146,12 @@ export const articleFavorite = pgTable("article_favorite", {
   // System field: Creation time (auto-filled, do not modify)
   createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   // System field: Creator (auto-filled, do not modify)
-  createdBy: userProfile("_created_by").default(sql`CASE
+  createdBy: varchar("_created_by", { length: 64 }).default(sql`CASE
     WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
   // System field: Update time (auto-filled, do not modify)
   updatedAt: customTimestamptz("_updated_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   // System field: Updater (auto-filled, do not modify)
-  updatedBy: userProfile("_updated_by").default(sql`CASE
+  updatedBy: varchar("_updated_by", { length: 64 }).default(sql`CASE
     WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
 }, (table) => [
   uniqueIndex("uk_favorite").on(table.userId, table.articleId),
@@ -171,12 +171,12 @@ export const article = pgTable("article", {
   // System field: Creation time (auto-filled, do not modify)
   createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   // System field: Creator (auto-filled, do not modify)
-  createdBy: userProfile("_created_by").default(sql`CASE
+  createdBy: varchar("_created_by", { length: 64 }).default(sql`CASE
     WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
   // System field: Update time (auto-filled, do not modify)
   updatedAt: customTimestamptz("_updated_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   // System field: Updater (auto-filled, do not modify)
-  updatedBy: userProfile("_updated_by").default(sql`CASE
+  updatedBy: varchar("_updated_by", { length: 64 }).default(sql`CASE
     WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
 }, (table) => [
   index("idx_article_column").on(table.columnType, table.createdAt),
@@ -195,12 +195,12 @@ export const taskCheckin = pgTable("task_checkin", {
   // System field: Creation time (auto-filled, do not modify)
   createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   // System field: Creator (auto-filled, do not modify)
-  createdBy: userProfile("_created_by").default(sql`CASE
+  createdBy: varchar("_created_by", { length: 64 }).default(sql`CASE
     WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
   // System field: Update time (auto-filled, do not modify)
   updatedAt: customTimestamptz("_updated_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   // System field: Updater (auto-filled, do not modify)
-  updatedBy: userProfile("_updated_by").default(sql`CASE
+  updatedBy: varchar("_updated_by", { length: 64 }).default(sql`CASE
     WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
 }, (table) => [
   index("idx_checkin_task").on(table.taskId),
@@ -219,12 +219,12 @@ export const studyTask = pgTable("study_task", {
   // System field: Creation time (auto-filled, do not modify)
   createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   // System field: Creator (auto-filled, do not modify)
-  createdBy: userProfile("_created_by").default(sql`CASE
+  createdBy: varchar("_created_by", { length: 64 }).default(sql`CASE
     WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
   // System field: Update time (auto-filled, do not modify)
   updatedAt: customTimestamptz("_updated_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   // System field: Updater (auto-filled, do not modify)
-  updatedBy: userProfile("_updated_by").default(sql`CASE
+  updatedBy: varchar("_updated_by", { length: 64 }).default(sql`CASE
     WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
 }, (table) => [
   index("idx_task_student").on(table.studentUserId, table.dueAt),
@@ -242,12 +242,12 @@ export const studyProgress = pgTable("study_progress", {
   // System field: Creation time (auto-filled, do not modify)
   createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   // System field: Creator (auto-filled, do not modify)
-  createdBy: userProfile("_created_by").default(sql`CASE
+  createdBy: varchar("_created_by", { length: 64 }).default(sql`CASE
     WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
   // System field: Update time (auto-filled, do not modify)
   updatedAt: customTimestamptz("_updated_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   // System field: Updater (auto-filled, do not modify)
-  updatedBy: userProfile("_updated_by").default(sql`CASE
+  updatedBy: varchar("_updated_by", { length: 64 }).default(sql`CASE
     WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
 }, (table) => [
   uniqueIndex("uk_progress_chapter").on(table.studentUserId, table.subject, table.chapter),
@@ -265,12 +265,12 @@ export const lessonLedger = pgTable("lesson_ledger", {
   // System field: Creation time (auto-filled, do not modify)
   createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   // System field: Creator (auto-filled, do not modify)
-  createdBy: userProfile("_created_by").default(sql`CASE
+  createdBy: varchar("_created_by", { length: 64 }).default(sql`CASE
     WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
   // System field: Update time (auto-filled, do not modify)
   updatedAt: customTimestamptz("_updated_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   // System field: Updater (auto-filled, do not modify)
-  updatedBy: userProfile("_updated_by").default(sql`CASE
+  updatedBy: varchar("_updated_by", { length: 64 }).default(sql`CASE
     WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
 }, (table) => [
   index("idx_ledger_student").on(table.studentUserId, table.createdAt),
@@ -286,12 +286,12 @@ export const lessonAccount = pgTable("lesson_account", {
   // System field: Creation time (auto-filled, do not modify)
   createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   // System field: Creator (auto-filled, do not modify)
-  createdBy: userProfile("_created_by").default(sql`CASE
+  createdBy: varchar("_created_by", { length: 64 }).default(sql`CASE
     WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
   // System field: Update time (auto-filled, do not modify)
   updatedAt: customTimestamptz("_updated_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   // System field: Updater (auto-filled, do not modify)
-  updatedBy: userProfile("_updated_by").default(sql`CASE
+  updatedBy: varchar("_updated_by", { length: 64 }).default(sql`CASE
     WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
 }, (table) => [
   uniqueIndex("uk_lesson_account").on(table.studentUserId, table.subject),
@@ -311,12 +311,12 @@ export const course = pgTable("course", {
   // System field: Creation time (auto-filled, do not modify)
   createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   // System field: Creator (auto-filled, do not modify)
-  createdBy: userProfile("_created_by").default(sql`CASE
+  createdBy: varchar("_created_by", { length: 64 }).default(sql`CASE
     WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
   // System field: Update time (auto-filled, do not modify)
   updatedAt: customTimestamptz("_updated_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   // System field: Updater (auto-filled, do not modify)
-  updatedBy: userProfile("_updated_by").default(sql`CASE
+  updatedBy: varchar("_updated_by", { length: 64 }).default(sql`CASE
     WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
 }, (table) => [
   index("idx_course_student").on(table.studentUserId, table.startAt),
@@ -331,12 +331,12 @@ export const teachingLink = pgTable("teaching_link", {
   // System field: Creation time (auto-filled, do not modify)
   createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   // System field: Creator (auto-filled, do not modify)
-  createdBy: userProfile("_created_by").default(sql`CASE
+  createdBy: varchar("_created_by", { length: 64 }).default(sql`CASE
     WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
   // System field: Update time (auto-filled, do not modify)
   updatedAt: customTimestamptz("_updated_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   // System field: Updater (auto-filled, do not modify)
-  updatedBy: userProfile("_updated_by").default(sql`CASE
+  updatedBy: varchar("_updated_by", { length: 64 }).default(sql`CASE
     WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
 }, (table) => [
   uniqueIndex("uk_teaching_pair").on(table.teacherUserId, table.studentUserId),
@@ -350,12 +350,12 @@ export const guardianLink = pgTable("guardian_link", {
   // System field: Creation time (auto-filled, do not modify)
   createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   // System field: Creator (auto-filled, do not modify)
-  createdBy: userProfile("_created_by").default(sql`CASE
+  createdBy: varchar("_created_by", { length: 64 }).default(sql`CASE
     WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
   // System field: Update time (auto-filled, do not modify)
   updatedAt: customTimestamptz("_updated_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   // System field: Updater (auto-filled, do not modify)
-  updatedBy: userProfile("_updated_by").default(sql`CASE
+  updatedBy: varchar("_updated_by", { length: 64 }).default(sql`CASE
     WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
 }, (table) => [
   uniqueIndex("uk_guardian_pair").on(table.parentUserId, table.studentUserId),
@@ -374,12 +374,12 @@ export const appProfile = pgTable("app_profile", {
   // System field: Creation time (auto-filled, do not modify)
   createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   // System field: Creator (auto-filled, do not modify)
-  createdBy: userProfile("_created_by").default(sql`CASE
+  createdBy: varchar("_created_by", { length: 64 }).default(sql`CASE
     WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
   // System field: Update time (auto-filled, do not modify)
   updatedAt: customTimestamptz("_updated_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   // System field: Updater (auto-filled, do not modify)
-  updatedBy: userProfile("_updated_by").default(sql`CASE
+  updatedBy: varchar("_updated_by", { length: 64 }).default(sql`CASE
     WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
 }, (table) => [
   uniqueIndex("uk_app_profile_user").on(table.userId),
@@ -396,12 +396,12 @@ export const authCredential = pgTable("auth_credential", {
   // System field: Creation time (auto-filled, do not modify)
   createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   // System field: Creator (auto-filled, do not modify)
-  createdBy: userProfile("_created_by").default(sql`CASE
+  createdBy: varchar("_created_by", { length: 64 }).default(sql`CASE
     WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
   // System field: Update time (auto-filled, do not modify)
   updatedAt: customTimestamptz("_updated_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   // System field: Updater (auto-filled, do not modify)
-  updatedBy: userProfile("_updated_by").default(sql`CASE
+  updatedBy: varchar("_updated_by", { length: 64 }).default(sql`CASE
     WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
 }, (table) => [
   uniqueIndex("uk_auth_credential_user").on(table.userId),
@@ -419,12 +419,12 @@ export const authSession = pgTable("auth_session", {
   // System field: Creation time (auto-filled, do not modify)
   createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   // System field: Creator (auto-filled, do not modify)
-  createdBy: userProfile("_created_by").default(sql`CASE
+  createdBy: varchar("_created_by", { length: 64 }).default(sql`CASE
     WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
   // System field: Update time (auto-filled, do not modify)
   updatedAt: customTimestamptz("_updated_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   // System field: Updater (auto-filled, do not modify)
-  updatedBy: userProfile("_updated_by").default(sql`CASE
+  updatedBy: varchar("_updated_by", { length: 64 }).default(sql`CASE
     WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
 }, (table) => [
   uniqueIndex("uk_auth_session_token").on(table.tokenHash),
