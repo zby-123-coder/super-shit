@@ -46,7 +46,10 @@ const DevFloatingSwitch = () => {
       await refreshAccount();
       toast.success(`已切换：${result.name}（${result.role}）`);
       setOpen(false);
-      navigate(location.pathname, { replace: true });
+      const next = ['/login', '/dev'].includes(location.pathname)
+        ? '/'
+        : location.pathname;
+      navigate(next, { replace: true });
     } catch (error) {
       toast.error('切换失败：账号或密码不正确');
     } finally {

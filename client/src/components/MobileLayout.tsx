@@ -19,7 +19,6 @@ const BASE_TABS = {
     ['schedule', '📅', '课表'],
     ['tasks', '✅', '任务'],
     ['lessons', '⏱', '课时'],
-    ['progress', '📈', '进度'],
     ['content', '📖', '发现'],
     ['me', '👤', '我的'],
   ],
@@ -28,7 +27,6 @@ const BASE_TABS = {
     ['schedule', '📅', '课表'],
     ['tasks', '✅', '学情'],
     ['lessons', '⏱', '课时'],
-    ['progress', '📈', '进度'],
     ['content', '📖', '发现'],
     ['me', '👤', '我的'],
   ],
@@ -37,7 +35,6 @@ const BASE_TABS = {
     ['schedule', '📅', '课表'],
     ['tasks', '✅', '批阅'],
     ['lessons', '⏱', '课时'],
-    ['progress', '📈', '进度'],
     ['content', '📖', '发现'],
     ['me', '👤', '我的'],
   ],
@@ -92,14 +89,14 @@ const MobileLayout = () => {
             <Outlet />
           )}
         </div>
-        <nav className="sticky bottom-0 flex border-t bg-background/95 backdrop-blur">
+        <nav className="sticky bottom-0 flex border-t border-border/60 bg-white/95 shadow-[0_-2px_12px_rgba(16,24,40,0.05)] backdrop-blur">
           {tabs.map(([to, icon, label]) => (
             <NavLink
               key={to}
               to={to === 'home' ? '/' : `/${to}`}
               end={to === 'home'}
               className={({ isActive }: { isActive: boolean }) =>
-                `flex flex-1 flex-col items-center gap-1 py-2 text-[10px] ${
+                `relative flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] transition ${
                   isActive ? 'text-primary' : 'text-muted-foreground'
                 }`
               }

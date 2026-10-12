@@ -186,6 +186,7 @@ shared/
 2. 改动服务端代码 → 进行接口测试，确保新增接口测试通过
 3. 提交前 **必须** 读取相关日志确认无错误（服务端: server/server-devserver 日志；客户端: client-devserver 日志）
 
+
 如果用户反馈编译失败、服务无法启动:
 
 1. 跑 `tsc --noEmit` / `eslint` 等代码检查
@@ -528,6 +529,11 @@ import { axiosForBackend } from '@lark-apaas/client-toolkit/utils/getAxiosForBac
 - **前后端联调**：禁止对后端接口请求做兜底和过度封装
 - **全栈项目禁止 mock 数据**：只要有服务端接口就当全栈对待，严禁 mock。纯前端项目（静态展示、无后端）可以使用 mock
 - **提交前检查 mock 残留**：禁止硬编码用户 ID、项目 ID 等 mock 数据。提交前确认无 `"user_xxx"`、`"project_1"` 等占位值
+
+
+### 后端异常响应与前端错误提示
+- 后端异常结构为 `{ "error": { "code": "CONFLICT", "message": "具体错误信息", "fieldErrors": { "字段": ["错误"] } } }`，顶层没有 `message`。
+- 前端展示接口错误（catch、`toast.error`、页面错误态）读 `error.response?.data?.error?.message`，取不到再用第一条 `fieldErrors` 文案或调用方的兜底文案，不用 axios 的 `error.message`；403 按 authz-guide 统一处理，不在业务 catch 里判断。
 
 ## 日志与错误处理
 

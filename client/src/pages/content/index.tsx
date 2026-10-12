@@ -139,7 +139,7 @@ const ContentPage = () => {
         {loading ? <LoadingBlock /> : null}
         {!loading && items.length === 0 ? <EmptyBlock text="暂无内容" /> : null}
         {items.map((item) => (
-          <div key={item.id} className="rounded-xl border p-3">
+          <div key={item.id} className="card-soft rounded-2xl border border-border/70 bg-white p-3.5">
             <div className="flex items-start justify-between gap-2">
               <Link to={`/content/${item.id}`} className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{item.title}</p>

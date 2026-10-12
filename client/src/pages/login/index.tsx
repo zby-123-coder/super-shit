@@ -8,6 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@client/src/components
 import { authApi } from '@client/src/api';
 import { refreshAccount } from '@client/src/hooks/useAccount';
 import { setToken } from '@client/src/utils/auth-token';
+import { isDevMode } from '@client/src/utils/dev-mode';
+import DevFloatingSwitch from '@client/src/components/DevFloatingSwitch';
 import type { UserRole } from '@shared/api.interface';
 
 const ROLES: { role: UserRole; label: string; desc: string }[] = [
@@ -92,7 +94,8 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/50 p-4">
+    <div className="relative flex min-h-screen items-center justify-center bg-muted/50 p-4">
+      {isDevMode ? <DevFloatingSwitch /> : null}
       <Card className="w-full max-w-[400px]">
         <CardContent className="flex flex-col gap-4">
           <div>

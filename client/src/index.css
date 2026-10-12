@@ -4,3 +4,30 @@
 @import "./typography.css";
 
 @config "../../tailwind.config.ts";
+
+/* ============ 业务状态标记 ============ */
+.tag {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 18px;
+  background: var(--primary-soft, hsl(229 84% 96%));
+  color: var(--primary);
+  white-space: nowrap;
+}
+.tag.g { background: var(--green-soft, hsl(150 60% 95%)); color: hsl(150 60% 34%); }
+.tag.o { background: var(--orange-soft, hsl(32 90% 94%)); color: hsl(28 90% 42%); }
+.tag.r { background: var(--red-soft, hsl(3 80% 96%)); color: hsl(3 75% 48%); }
+.tag.s { background: var(--muted); color: var(--muted-foreground); }
+
+/* ============ 页面级辅助 ============ */
+.page-hero {
+  background: linear-gradient(135deg, hsl(229 84% 60%) 0%, hsl(240 70% 55%) 100%);
+  color: #fff;
+  border-radius: 0 0 20px 20px;
+  padding: 18px 16px 20px;
+  margin-bottom: 4px;
+}
+.page-hero .sub { color: rgba(255, 255, 255, 0.82); }
+.card-soft { box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 24px rgba(16, 24, 40, 0.04); }

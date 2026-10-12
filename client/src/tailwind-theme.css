@@ -9,17 +9,17 @@
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
 
-  --background: hsl(0 0% 100%);
+  --background: hsl(210 20% 98%);
   --foreground: hsl(220 14% 14%);
   --card: hsl(0 0% 100%);
   --card-foreground: hsl(220 14% 14%);
   --popover: hsl(0 0% 100%);
   --popover-foreground: hsl(220 14% 14%);
-  --primary: hsl(221 83% 53%);
+  --primary: hsl(229 84% 60%);
   --primary-foreground: hsl(220 14% 98%);
   --secondary: hsl(220 14% 96%);
   --secondary-foreground: hsl(220 14% 14%);
-  --muted: hsl(220 14% 96%);
+  --muted: hsl(214 20% 95%);
   --muted-foreground: hsl(218 7% 59%);
   --accent: hsl(220 14% 96%);
   --accent-foreground: hsl(220 14% 14%);
@@ -31,9 +31,9 @@
   --success-foreground: hsl(115 77% 97%);
   --warning: hsl(26 90% 49%);
   --warning-foreground: hsl(33 100% 96%);
-  --border: hsl(220 14% 89%);
+  --border: hsl(214 20% 91%);
   --input: hsl(220 14% 89%);
-  --ring: hsl(221 83% 53%);
+  --ring: hsl(229 84% 60%);
   --chart-1: hsl(222 82% 56%);
   --chart-2: hsl(174 77% 46%);
   --chart-3: hsl(46 100% 52%);
@@ -41,7 +41,7 @@
   --chart-5: hsl(292 54% 76%);
   --sidebar: hsl(220 14% 96%);
   --sidebar-foreground: hsl(220 14% 14%);
-  --sidebar-primary: hsl(221 83% 53%);
+  --sidebar-primary: hsl(229 84% 60%);
   --sidebar-primary-foreground: hsl(220 14% 98%);
   --sidebar-accent: hsl(222 100% 94%);
   --sidebar-accent-foreground: hsl(221 83% 53%);
@@ -49,7 +49,7 @@
   --sidebar-ring: hsl(221 83% 53%);
 
   /* Computed borders using hsl relative color syntax */
-  --primary-border: hsl(from hsl(221 83% 53%) h s calc(l + var(--opaque-button-border-intensity)));
+  --primary-border: hsl(from hsl(229 84% 60%) h s calc(l + var(--opaque-button-border-intensity)));
   --secondary-border: hsl(from hsl(220 14% 96%) h s calc(l + var(--opaque-button-border-intensity)));
   --destructive-border: hsl(from hsl(2 84% 62%) h s calc(l + var(--opaque-button-border-intensity)));
   --accent-border: hsl(from hsl(220 14% 96%) h s calc(l + var(--opaque-button-border-intensity)));
@@ -63,7 +63,7 @@
     'Geist', 'Geist Fallback', ui-serif, Georgia, Cambria, 'Times New Roman',
     Times, serif;
   --font-mono: Source Code Pro, monospace;
-  --radius: 0.5rem;
+  --radius: 0.75rem;
   --shadow-x: 0px;
   --shadow-y: 2px;
   --shadow-blur: 12px;

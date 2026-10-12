@@ -130,7 +130,7 @@ const SchedulePage = () => {
               </span>
             </div>
             {bucket.items.map((item) => (
-              <div key={item.id} className="rounded-xl border p-3">
+              <div key={item.id} className="card-soft rounded-2xl border border-border/70 bg-white p-3.5">
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <p className="text-sm font-medium">

@@ -137,7 +137,7 @@ const MePage = () => {
       />
 
       <div className="flex flex-col gap-3 p-4">
-        <Card data-ai-section-type="card-stat">
+        <Card className="card-soft" data-ai-section-type="card-stat">
           <CardContent className="p-4">
             <div className="flex items-center justify-between gap-2">
               <div>
@@ -186,7 +186,7 @@ const MePage = () => {
           </CardContent>
         </Card>
 
-        <Card data-ai-section-type="card-stat">
+        <Card className="card-soft" data-ai-section-type="card-stat">
           <CardContent className="p-4">
             <p className="text-sm font-medium">{profile.name || '未命名'}</p>
             <p className="mt-1 text-xs text-muted-foreground">

@@ -118,12 +118,22 @@ const HomePage = () => {
 
   return (
     <div>
-      <PageHeader
-        title={`${profile.name || '同学'}，你好`}
-        subtitle={`${ROLE_LABEL[role]} · ${childLabel}`}
-        action={
-          <Link to="/messages" aria-label="消息中心">
-            <Button variant="outline" size="sm" className="relative">
+      <div className="page-hero">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="truncate text-base font-semibold">
+              {profile.name || '同学'}，你好
+            </p>
+            <p className="sub mt-1 truncate text-xs">
+              {ROLE_LABEL[role]} · {childLabel}
+            </p>
+          </div>
+          <Link to="/me" aria-label="消息中心">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="relative shrink-0 bg-white/20 text-white hover:bg-white/30"
+            >
               消息
               {unread > 0 ? (
                 <Badge className="absolute -right-1 -top-1 px-1 text-[10px]">
@@ -132,12 +142,12 @@ const HomePage = () => {
               ) : null}
             </Button>
           </Link>
-        }
-      />
+        </div>
+      </div>
 
       <div className="flex flex-col gap-3 p-4">
         {isBlank ? (
-          <Card className="border-primary/30 bg-primary/5">
+          <Card className="card-soft border-primary/30 bg-primary/5">
             <CardContent className="flex flex-col gap-2 p-4">
               <p className="text-sm font-medium">欢迎使用</p>
               <p className="text-xs text-muted-foreground">
@@ -155,7 +165,7 @@ const HomePage = () => {
             <Link
               key={link.to}
               to={link.to}
-              className="flex flex-col items-center gap-1 rounded-xl border p-3 text-xs"
+              className="flex flex-col items-center gap-1 rounded-2xl border border-border/70 bg-white p-3 text-xs shadow-[0_1px_3px_rgba(16,24,40,0.05)]"
             >
               <link.icon className="size-5 text-primary" />
               {link.label}
@@ -164,7 +174,7 @@ const HomePage = () => {
         </div>
 
         {role === 'teacher' || role === 'admin' ? (
-          <Card data-ai-section-type="card-stat">
+          <Card className="card-soft" data-ai-section-type="card-stat">
             <CardContent className="flex items-center justify-between p-4">
               <div>
                 <p className="text-sm text-muted-foreground">待批阅打卡</p>
@@ -180,7 +190,7 @@ const HomePage = () => {
         ) : null}
 
         {role === 'admin' ? (
-          <Card data-ai-section-type="card-stat">
+          <Card className="card-soft" data-ai-section-type="card-stat">
             <CardContent className="flex items-center justify-between p-4">
               <div>
                 <p className="text-sm text-muted-foreground">管理后台</p>
@@ -253,7 +263,7 @@ const HomePage = () => {
         </Card>
 
         {role !== 'admin' ? (
-          <Card>
+          <Card className="card-soft">
             <CardContent className="p-4">
               <div className="mb-2 flex items-center justify-between">
                 <h2 className="text-sm font-medium">
@@ -300,7 +310,7 @@ const HomePage = () => {
         ) : null}
 
         {role === 'student' || role === 'parent' ? (
-          <Card>
+          <Card className="card-soft">
             <CardContent className="p-4">
               <div className="mb-2 flex items-center justify-between">
                 <h2 className="text-sm font-medium">课时余额</h2>
