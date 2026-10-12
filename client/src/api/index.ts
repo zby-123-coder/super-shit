@@ -124,7 +124,7 @@ export const courseApi = {
 export const taskApi = {
   list: (): Promise<TaskListResponse> =>
     request({ url: '/api/task', method: 'GET' }),
-  create: (data: CreateTaskRequest): Promise<TaskDTO> =>
+  create: (data: CreateTaskRequest): Promise<TaskDTO[]> =>
     request({ url: '/api/task', method: 'POST', data }),
   checkin: (id: string, data: {
     content?: string;

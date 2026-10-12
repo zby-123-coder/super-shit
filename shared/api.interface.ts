@@ -188,7 +188,10 @@ export interface TaskListResponse {
 }
 
 export interface CreateTaskRequest {
-  studentUserId: string;
+  /** 单个学生（兼容旧用法）；批量请用 studentUserIds */
+  studentUserId?: string;
+  /** 批量布置时的学生列表 */
+  studentUserIds?: string[];
   subject?: string;
   title: string;
   content?: string;

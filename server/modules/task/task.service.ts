@@ -1,4 +1,4 @@
-import { ForbiddenException, Inject, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Inject, Injectable, Logger } from '@nestjs/common';
 import {
   DRIZZLE_DATABASE,
   type PostgresJsDatabase,
@@ -192,59 +192,82 @@ export class TaskService {
     return { items, pendingCount, doneCount, streakDays };
   }
 
-  async create(dto: CreateTaskRequest, userId: string): Promise<TaskDTO> {
+  /** 布置任务：支持批量（一个任务发给多个学生） */
+  async create(
+    dto: CreateTaskRequest,
+    userId: string,
+  ): Promise<TaskDTO[]> {
     const me = await this.accountService.findProfile(userId);
     if (!me || (me.role !== 'teacher' && me.role !== 'admin')) {
       throw new ForbiddenException('只有老师或管理员可以布置任务');
     }
+    const studentIds = Array.from(
+      new Set(
+        (dto.studentUserIds ?? []).concat(
+          dto.studentUserId ? [dto.studentUserId] : [],
+        ),
+      ),
+    ).filter((id: string) => !!id);
+    if (studentIds.length === 0) {
+      throw new BadRequestException('请至少选择一名学生');
+    }
     if (me.role === 'teacher') {
-      const allowed = await this.accountService.canTeachStudent(
-        userId,
-        dto.studentUserId,
+      const allowed = await this.db
+        .select({ studentUserId: teachingLink.studentUserId })
+        .from(teachingLink)
+        .where(eq(teachingLink.teacherUserId, userId));
+      const allowedSet = new Set(
+        allowed.map((row) => row.studentUserId),
       );
-      if (!allowed) {
-        throw new ForbiddenException('该学生不在你的带班范围内');
+      const outside = studentIds.filter((id) => !allowedSet.has(id));
+      if (outside.length > 0) {
+        throw new ForbiddenException(
+          `有 ${outside.length} 名学生不在你的带班范围内`,
+        );
       }
     }
-    const inserted: TaskRow[] = await this.db
-      .insert(studyTask)
-      .values({
-        teacherUserId: userId,
-        studentUserId: dto.studentUserId,
-        subject: dto.subject ?? null,
-        title: dto.title,
-        content: dto.content ?? null,
-        dueAt: dto.dueAt ? new Date(dto.dueAt) : null,
-        status: 'open',
-      })
-      .returning();
-    const row = inserted[0];
 
-    const parents = await this.guardiansOf(dto.studentUserId);
-    for (const targetId of [dto.studentUserId, ...parents]) {
-      await this.messageService.notify({
-        userId: targetId,
-        msgType: 'task',
-        title: '新的学习任务',
-        content: `${me.name || '老师'}布置了任务：${dto.title}`,
-        linkPath: '/tasks',
+    const created: TaskDTO[] = [];
+    for (const studentId of studentIds) {
+      const inserted: TaskRow[] = await this.db
+        .insert(studyTask)
+        .values({
+          teacherUserId: userId,
+          studentUserId: studentId,
+          subject: dto.subject ?? null,
+          title: dto.title,
+          content: dto.content ?? null,
+          dueAt: dto.dueAt ? new Date(dto.dueAt) : null,
+          status: 'open',
+        })
+        .returning();
+      const row = inserted[0];
+      const parents = await this.guardiansOf(studentId);
+      for (const targetId of [studentId, ...parents]) {
+        await this.messageService.notify({
+          userId: targetId,
+          msgType: 'task',
+          title: '新的学习任务',
+          content: `${me.name || '老师'}布置了任务：${dto.title}`,
+          linkPath: '/tasks',
+        });
+      }
+      created.push({
+        id: row.id,
+        teacherUserId: row.teacherUserId,
+        teacherName: me.name,
+        studentUserId: row.studentUserId,
+        studentName: '',
+        subject: row.subject ?? '',
+        title: row.title,
+        content: row.content ?? '',
+        dueAt: row.dueAt ? row.dueAt.toISOString() : '',
+        status: 'open',
+        checkin: null,
+        createdAt: row.createdAt.toISOString(),
       });
     }
-
-    return {
-      id: row.id,
-      teacherUserId: row.teacherUserId,
-      teacherName: me.name,
-      studentUserId: row.studentUserId,
-      studentName: '',
-      subject: row.subject ?? '',
-      title: row.title,
-      content: row.content ?? '',
-      dueAt: row.dueAt ? row.dueAt.toISOString() : '',
-      status: 'open',
-      checkin: null,
-      createdAt: row.createdAt.toISOString(),
-    };
+    return created;
   }
 
   async checkin(

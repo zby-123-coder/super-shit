@@ -13,16 +13,13 @@ import {
   DialogTitle,
 } from '@client/src/components/ui/dialog';
 import { Input } from '@client/src/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@client/src/components/ui/select';
 import { Textarea } from '@client/src/components/ui/textarea';
 import { EmptyBlock, LoadingBlock, PageHeader } from '@client/src/components/PageShell';
 import { taskApi } from '@client/src/api';
+import {
+  PRESET_COMMENTS,
+  generateReviewDraft,
+} from '@client/src/utils/review-draft';
 import { useAccount } from '@client/src/hooks/useAccount';
 import type { TaskDTO, TaskListResponse } from '@shared/api.interface';
 
@@ -45,29 +42,23 @@ const TasksPage = () => {
   const [reviewComment, setReviewComment] = useState<string>('');
   const [createOpen, setCreateOpen] = useState<boolean>(false);
   const [newTask, setNewTask] = useState<{
-    studentUserId: string;
+    studentUserIds: string[];
     title: string;
     content: string;
     dueAt: string;
-  }>({ studentUserId: '', title: '', content: '', dueAt: '' });
+  }>({ studentUserIds: [], title: '', content: '', dueAt: '' });
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const result = await taskApi.list();
       setTasks(result);
-      if (newTask.studentUserId === '' && data?.students[0]) {
-        setNewTask((prev) => ({
-          ...prev,
-          studentUserId: data.students[0].userId,
-        }));
-      }
     } catch (error) {
       toast.error('任务列表加载失败');
     } finally {
       setLoading(false);
     }
-  }, [data]);
+  }, []);
 
   useEffect(() => {
     load();
@@ -106,21 +97,21 @@ const TasksPage = () => {
   };
 
   const submitCreate = async () => {
-    if (!newTask.studentUserId || !newTask.title.trim()) {
+    if (newTask.studentUserIds.length === 0 || !newTask.title.trim()) {
       toast.error('请选择学生并填写任务标题');
       return;
     }
     try {
-      await taskApi.create({
-        studentUserId: newTask.studentUserId,
+      const created = await taskApi.create({
+        studentUserIds: newTask.studentUserIds,
         title: newTask.title.trim(),
         content: newTask.content.trim(),
         dueAt: newTask.dueAt ? new Date(newTask.dueAt).toISOString() : undefined,
       });
-      toast.success('任务已布置');
+      toast.success(`已布置给 ${created.length} 名学生`);
       setCreateOpen(false);
       setNewTask({
-        studentUserId: newTask.studentUserId,
+        studentUserIds: newTask.studentUserIds,
         title: '',
         content: '',
         dueAt: '',
@@ -276,6 +267,36 @@ const TasksPage = () => {
               {reviewTask?.studentName} · {reviewTask?.title}
             </DialogDescription>
           </DialogHeader>
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap gap-1">
+              {PRESET_COMMENTS.map((preset) => (
+                <Button
+                  key={preset}
+                  size="sm"
+                  variant="outline"
+                  className="text-xs"
+                  onClick={() => setReviewComment(preset)}
+                >
+                  {preset}
+                </Button>
+              ))}
+            </div>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() =>
+                setReviewComment(
+                  generateReviewDraft({
+                    content: reviewTask?.checkin?.content ?? '',
+                    durationMin: reviewTask?.checkin?.durationMin ?? 0,
+                    taskTitle: reviewTask?.title ?? '',
+                  }),
+                )
+              }
+            >
+              生成草稿评语
+            </Button>
+          </div>
           <Textarea
             value={reviewComment}
             onChange={(event) => setReviewComment(event.target.value)}
@@ -300,24 +321,63 @@ const TasksPage = () => {
             <DialogTitle>布置学习任务</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-3">
-            <Select
-              value={newTask.studentUserId}
-              onValueChange={(value: string) =>
-                setNewTask((prev) => ({ ...prev, studentUserId: value }))
-              }
-            >
-              <SelectTrigger aria-label="选择学生">
-                <SelectValue placeholder="选择学生" />
-              </SelectTrigger>
-              <SelectContent>
-                {(data?.students ?? []).map((student) => (
-                  <SelectItem key={student.userId} value={student.userId}>
+            <div className="flex items-center justify-between">
+              <span className="text-sm">
+                选择学生（已选 {newTask.studentUserIds.length}）
+              </span>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() =>
+                  setNewTask((prev) => ({
+                    ...prev,
+                    studentUserIds:
+                      prev.studentUserIds.length ===
+                      (data?.students ?? []).length
+                        ? []
+                        : (data?.students ?? []).map((item) => item.userId),
+                  }))
+                }
+              >
+                全选 / 反选
+              </Button>
+            </div>
+            <div className="flex max-h-40 flex-col gap-1 overflow-y-auto rounded-lg border p-2">
+              {(data?.students ?? []).map((student) => {
+                const checked = newTask.studentUserIds.includes(
+                  student.userId,
+                );
+                return (
+                  <label
+                    key={student.userId}
+                    className="flex items-center gap-2 text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      aria-label={`选择学生 ${student.name}`}
+                      onChange={() =>
+                        setNewTask((prev) => ({
+                          ...prev,
+                          studentUserIds: checked
+                            ? prev.studentUserIds.filter(
+                                (id) => id !== student.userId,
+                              )
+                            : [...prev.studentUserIds, student.userId],
+                        }))
+                      }
+                    />
                     {student.name}
                     {student.grade ? `（${student.grade}）` : ''}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                  </label>
+                );
+              })}
+              {(data?.students ?? []).length === 0 ? (
+                <span className="text-xs text-muted-foreground">
+                  暂无带班学生
+                </span>
+              ) : null}
+            </div>
             <Input
               value={newTask.title}
               onChange={(event) =>

@@ -28,8 +28,14 @@ import type {
 import { TaskService } from './task.service';
 
 class CreateTaskDto implements CreateTaskRequest {
+  @IsOptional()
   @IsString()
-  studentUserId!: string;
+  studentUserId?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  studentUserIds?: string[];
 
   @IsOptional()
   @IsString()
@@ -95,11 +101,12 @@ export class TaskController {
   async create(
     @Req() req: Request,
     @Body() dto: CreateTaskDto,
-  ): Promise<TaskDTO> {
+  ): Promise<TaskDTO[]> {
     const { userId } = req.userContext;
     return this.taskService.create(
       {
         studentUserId: dto.studentUserId,
+        studentUserIds: dto.studentUserIds,
         subject: dto.subject,
         title: dto.title,
         content: dto.content,
