@@ -1,6 +1,6 @@
 import { APP_FILTER } from '@nestjs/core';
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
-import { PlatformModule } from '@lark-apaas/fullstack-nestjs-core';
+import { DatabaseModule } from './database/database.module';
 
 import { GlobalExceptionFilter } from './common/filters/exception.filter';
 import { ViewModule } from './modules/view/view.module';
@@ -21,8 +21,8 @@ import { WrongQuestionModule } from './modules/wrong-question/wrong-question.mod
 
 @Module({
   imports: [
-    // 平台 Module，提供平台能力
-    PlatformModule.forRoot(),
+    // 全局数据库模块（自持接入，替代平台能力）
+    DatabaseModule,
     // ====== @route-section: business-modules START ======
     // Place all business modules here.Do NOT add fallback modules here.
     AuthModule,

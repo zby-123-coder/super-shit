@@ -8,16 +8,16 @@
     "customToaster": true
   },
   "scripts": {
-    "dev": "./scripts/dev.sh",
+    "dev": "concurrently -n \"server,client\" -c \"blue,green\" \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "NODE_ENV=development nest start --watch",
     "dev:client": "NODE_ENV=development vite --config vite.config.ts",
-    "gen:db-schema": "npx -y @lark-apaas/db-schema-sync@latest --output server/database/schema.ts --export-custom-types",
+    "gen:db-schema": "npx drizzle-kit introspect",
     "gen:openapi": "echo 'UNSUPPORTED, SKIP'",
     "build": "./scripts/build.sh",
     "build:prod": "npm run build:server && npm run build:client",
     "build:server": "NODE_ENV=production nest build",
     "build:client": "NODE_ENV=production vite build --config vite.config.ts",
-    "start": "NODE_ENV=production node main.js",
+    "start": "node dist/server/main.js",
     "eslint": "eslint . --quiet",
     "stylelint": "stylelint client/src/**/*.css --quiet",
     "type:check": "concurrently -n \"server,client\" -c \"blue,green\" \"npm run type:check:server\" \"npm run type:check:client\"",
@@ -27,7 +27,6 @@
     "precommit": "node scripts/hooks/run-precommit.js",
     "upgrade": "npx -y @lark-apaas/fullstack-cli@latest sync --disable-gen-openapi",
     "prepare": "chmod +x .githooks/pre-commit 2>/dev/null; git config core.hooksPath .githooks 2>/dev/null || true",
-    "postinstall": "npx -y @lark-apaas/fullstack-cli@latest action-plugin init",
     "dev:local": "node ./scripts/dev-local.js"
   },
   "dependencies": {
@@ -51,6 +50,7 @@
     "drizzle-orm": "0.44.6",
     "hbs": "^4.2.0",
     "multer": "^2.4.0",
+    "postgres": "^3.4.9",
     "reflect-metadata": "^0.1.14",
     "tslib": "^2.8.1"
   },
@@ -102,6 +102,7 @@
     "cmdk": "^1.1.1",
     "concurrently": "^9.2.1",
     "date-fns": "^4.1.0",
+    "drizzle-kit": "^0.31.11",
     "echarts": "^6.1.0",
     "echarts-for-react": "~3.0.2",
     "embla-carousel-react": "^8.6.0",
