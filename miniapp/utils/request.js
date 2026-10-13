@@ -169,6 +169,14 @@ const api = {
     request({ url: '/api/admin/assign', method: 'POST', data: payload }),
   broadcast: (payload) =>
     request({ url: '/api/message/broadcast', method: 'POST', data: payload }),
+
+  // admin - content
+  contentAdminList: (params) => request({ url: '/api/content', params }),
+  contentCreate: (payload) =>
+    request({ url: '/api/content', method: 'POST', data: payload }),
+  contentSetStatus: (id, payload) =>
+    request({ url: `/api/content/${id}/status`, method: 'PATCH', data: payload }),
+  contentDelete: (id) => request({ url: `/api/content/${id}`, method: 'DELETE' }),
 };
 
 module.exports = { request, api, getToken, setToken, clearToken, API_BASE };

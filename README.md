@@ -53,8 +53,19 @@ scripts/           建表 SQL 与联调脚本（itest-*.sh）
 uploads/           打卡图片（本地磁盘，部署时换 OSS）
 ```
 
-## 联调脚本
+## 联调与测试
 
 ```bash
-bash scripts/itest-family.sh   # 家庭账户 + 越权 + 闭环联调
+npm test                        # 冒烟测试：20 用例（闭环 + 越权 + 鉴权），需服务已启动
+bash scripts/itest-family.sh   # 家庭账户模型详细联调
 ```
+
+## 可选能力开关（环境变量）
+
+| 变量 | 效果 |
+|---|---|
+| `AI_API_KEY` / `AI_BASE_URL` / `AI_MODEL` | 接入大模型（周报/批阅草稿/变式题），未配置用内置规则版 |
+| `WECHAT_APPID` / `WECHAT_SECRET` | 微信一键登录，未配置用账号密码 |
+| `OSS_ENDPOINT` / `OSS_BUCKET` / `OSS_ACCESS_KEY_ID` / `OSS_SECRET_ACCESS_KEY` / `OSS_PUBLIC_BASE_URL` | 打卡图片存 S3 兼容存储（阿里云OSS/COS/R2/MinIO），未配置用本地磁盘 |
+
+详见《接入与部署说明.md》。

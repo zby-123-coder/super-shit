@@ -1,6 +1,4 @@
-import { logger } from '@lark-apaas/client-toolkit/logger';
-import { axiosForBackend } from '@lark-apaas/client-toolkit/utils/getAxiosForBackend';
-import { clearToken, getToken } from '@client/src/utils/auth-token';
+import { http } from '@client/src/utils/http';
 import type {
   AccountMeResponse,
   AdminOverview,
@@ -47,24 +45,13 @@ interface RequestConfig {
 }
 
 async function request<T>(config: RequestConfig): Promise<T> {
-  const token = getToken();
-  try {
-    const response = await axiosForBackend({
-      url: config.url,
-      method: config.method,
-      data: config.data,
-      params: config.params,
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    });
-    return response.data as T;
-  } catch (error) {
-    const status = (error as { response?: { status?: number } }).response?.status;
-    if (status === 401) {
-      clearToken();
-    }
-    logger.error(`请求失败：${config.url}`, error);
-    throw error;
-  }
+  const response = await http({
+    url: config.url,
+    method: config.method,
+    data: config.data,
+    params: config.params,
+  });
+  return response.data as T;
 }
 
 export const authApi = {
@@ -235,10 +222,7 @@ export const uploadApi = {
   image: async (file: File): Promise<{ url: string }> => {
     const form = new FormData();
     form.append('file', file);
-    const token = getToken();
-    const response = await axiosForBackend.post('/api/upload/image', form, {
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    });
+    const response = await http.post('/api/upload/image', form);
     return response.data as { url: string };
   },
 };

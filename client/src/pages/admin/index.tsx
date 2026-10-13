@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { http } from '@client/src/utils/http';
 import { toast } from 'sonner';
 import { Badge } from '@client/src/components/ui/badge';
 import { Button } from '@client/src/components/ui/button';
@@ -269,9 +270,18 @@ const AdminPage = () => {
             <CardContent className="p-4">
               <div className="mb-3 flex items-center justify-between">
                 <p className="text-sm font-medium">用户列表（{users.length}）</p>
-                <Button size="sm" onClick={() => setAssignOpen(true)}>
-                  指派关系
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => downloadCsv('/api/admin/export/users', 'users.csv')}
+                  >
+                    导出用户
+                  </Button>
+                  <Button size="sm" onClick={() => setAssignOpen(true)}>
+                    指派关系
+                  </Button>
+                </div>
               </div>
               <div className="flex flex-col gap-2">
                 {users.map((item) => (
@@ -613,5 +623,20 @@ const AdminPage = () => {
     </div>
   );
 };
+
+/** 带 token 下载 CSV（后端返回 blob） */
+async function downloadCsv(path: string, filename: string) {
+  try {
+    const response = await http.get(path, { responseType: 'blob' });
+    const url = window.URL.createObjectURL(response.data as Blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    toast.error('导出失败，请重试');
+  }
+}
 
 export default AdminPage;

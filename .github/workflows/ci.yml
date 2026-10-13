@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: jiajiao
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/jiajiao
+      CLIENT_BASE_PATH: /
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint & type check
+        run: |
+          npm run eslint
+          npm run type:check
+
+      - name: Migrate
+        run: psql "$DATABASE_URL" -f scripts/full-migration.sql
+
+      - name: Build
+        run: npm run build
+
+      - name: Start server
+        run: |
+          PORT=3000 npm start &
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3000/api/ai/status >/dev/null 2>&1 && break
+            sleep 1
+          done
+
+      - name: Smoke test
+        run: npm test

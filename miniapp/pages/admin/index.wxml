@@ -1,0 +1,125 @@
+<view class="page">
+  <!-- Tab 切换 -->
+  <view class="tabs">
+    <view wx:for="{{tabs}}" wx:key="key" class="tab {{tab === item.key ? 'tab-active' : ''}}"
+          bindtap="onTab" data-key="{{item.key}}">{{item.label}}</view>
+  </view>
+
+  <!-- 概览 -->
+  <view wx:if="{{tab === 'overview'}}">
+    <view class="card" wx:if="{{stats}}">
+      <view class="subtitle" style="margin-bottom:20rpx">数据概览</view>
+      <view class="grid">
+        <view class="grid-item"><view class="grid-num">{{stats.userCount}}</view><view class="muted tiny">注册用户</view></view>
+        <view class="grid-item"><view class="grid-num">{{stats.studentCount}}</view><view class="muted tiny">学生</view></view>
+        <view class="grid-item"><view class="grid-num">{{stats.teacherCount}}</view><view class="muted tiny">老师</view></view>
+        <view class="grid-item"><view class="grid-num">{{stats.parentCount}}</view><view class="muted tiny">家长</view></view>
+        <view class="grid-item"><view class="grid-num">{{stats.weekCourseCount}}</view><view class="muted tiny">本周课程</view></view>
+        <view class="grid-item"><view class="grid-num">{{stats.pendingCheckinCount}}</view><view class="muted tiny">待批阅</view></view>
+        <view class="grid-item"><view class="grid-num">{{stats.consumedLessons}}</view><view class="muted tiny">消耗课时</view></view>
+        <view class="grid-item"><view class="grid-num">{{stats.articleCount}}</view><view class="muted tiny">内容</view></view>
+      </view>
+    </view>
+    <view class="empty" wx:if="{{!stats && !loading}}">暂无数据</view>
+  </view>
+
+  <!-- 用户 -->
+  <view wx:if="{{tab === 'users'}}">
+    <view class="card">
+      <view class="row gap-8">
+        <input class="field" style="flex:1" placeholder="搜索姓名/登录名" value="{{userKeyword}}"
+               bindinput="onUserKeyword" bindconfirm="searchUsers" />
+        <button class="btn btn-sm" style="margin:0" bindtap="searchUsers">搜索</button>
+      </view>
+    </view>
+    <view class="card" wx:for="{{users}}" wx:key="userId">
+      <view class="row" style="margin-bottom:10rpx">
+        <view class="row gap-8" style="min-width:0">
+          <text class="subtitle">{{item.name}}</text>
+          <text class="tag {{item.isActive ? '' : 'tag-warn'}}">{{item.isActive ? '正常' : '停用'}}</text>
+        </view>
+        <text class="tag {{item.role === 'admin' ? '' : 'tag-s'}}" bindtap="cycleRole" data-id="{{item.userId}}" data-role="{{item.role}}">
+          {{item.role === 'student' ? '学生' : item.role === 'parent' ? '家长' : item.role === 'teacher' ? '老师' : '管理员'}} (点按切换)
+        </text>
+      </view>
+      <view class="muted tiny" style="margin-bottom:14rpx">{{item.loginName || item.userId}}</view>
+      <button class="btn btn-sm btn-ghost" style="margin:0" bindtap="toggleUser"
+              data-id="{{item.userId}}" data-active="{{item.isActive}}">
+        {{item.isActive ? '停用' : '启用'}}
+      </button>
+    </view>
+    <view class="empty" wx:if="{{!users.length && !loading}}">暂无用户</view>
+  </view>
+
+  <!-- 内容 -->
+  <view wx:if="{{tab === 'content'}}">
+    <view class="card">
+      <button class="btn" bindtap="openPublish">发布新内容</button>
+    </view>
+    <view class="card" wx:for="{{articles}}" wx:key="id">
+      <view class="row" style="margin-bottom:10rpx">
+        <text class="subtitle" style="flex:1;min-width:0">{{item.title}}</text>
+        <text class="tag {{item.status === 'published' ? '' : 'tag-warn'}}">
+          {{item.status === 'published' ? '已发布' : '已下架'}}
+        </text>
+      </view>
+      <view class="muted tiny" style="margin-bottom:14rpx">
+        {{item.columnType === 'case' ? '案例' : item.columnType === 'trial' ? '试听' : item.columnType === 'inspect' ? '巡教' : '资讯'}} · {{item.summary || '无摘要'}}
+      </view>
+      <view class="row gap-8">
+        <button class="btn btn-sm btn-ghost" style="margin:0" bindtap="toggleArticleStatus"
+                data-id="{{item.id}}" data-status="{{item.status}}">
+          {{item.status === 'published' ? '下架' : '上架'}}
+        </button>
+        <button class="btn btn-sm btn-ghost" style="margin:0;color:#D93025" bindtap="deleteArticle"
+                data-id="{{item.id}}">删除</button>
+      </view>
+    </view>
+    <view class="empty" wx:if="{{!articles.length && !loading}}">暂无内容</view>
+  </view>
+
+  <!-- 通知 -->
+  <view wx:if="{{tab === 'notice'}}">
+    <view class="card">
+      <view class="subtitle" style="margin-bottom:16rpx">群发通知</view>
+      <input class="field" placeholder="标题" value="{{noticeForm.title}}" bindinput="onNoticeInput" data-field="title" />
+      <textarea class="field" style="min-height:160rpx" placeholder="内容" value="{{noticeForm.content}}"
+                bindinput="onNoticeInput" data-field="content"></textarea>
+      <view class="row gap-8" style="margin-bottom:16rpx">
+        <text class="muted tiny">发送范围：</text>
+        <text class="tag {{noticeForm.role === '' ? '' : 'tag-s'}}" catchtap="onNoticeRole" data-role="">全部</text>
+        <text class="tag {{noticeForm.role === 'parent' ? '' : 'tag-s'}}" catchtap="onNoticeRole" data-role="parent">家长</text>
+        <text class="tag {{noticeForm.role === 'student' ? '' : 'tag-s'}}" catchtap="onNoticeRole" data-role="student">学生</text>
+      </view>
+      <button class="btn" bindtap="sendNotice">发送</button>
+    </view>
+    <view class="card">
+      <view class="subtitle" style="margin-bottom:16rpx">数据导出</view>
+      <view class="row gap-8">
+        <button class="btn btn-sm btn-ghost" style="margin:0" bindtap="exportCsv" data-type="users">导出用户 CSV</button>
+        <button class="btn btn-sm btn-ghost" style="margin:0" bindtap="exportCsv" data-type="ledgers">导出课时流水 CSV</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 发布弹窗 -->
+  <view class="mask" wx:if="{{publishVisible}}" bindtap="closePublish">
+    <view class="sheet" catchtap="noop">
+      <view class="subtitle" style="margin-bottom:20rpx">发布内容</view>
+      <input class="field" placeholder="标题" value="{{publishForm.title}}" bindinput="onPublishInput" data-field="title" />
+      <input class="field" placeholder="摘要（选填）" value="{{publishForm.summary}}" bindinput="onPublishInput" data-field="summary" />
+      <textarea class="field" style="min-height:200rpx" placeholder="正文" value="{{publishForm.content}}"
+                bindinput="onPublishInput" data-field="content"></textarea>
+      <view class="row gap-8" style="margin:16rpx 0">
+        <text class="muted tiny">栏目：</text>
+        <text wx:for="{{['case','trial','inspect','news']}}" wx:key="*this"
+              class="tag {{publishForm.columnType === item ? '' : 'tag-s'}}"
+              catchtap="onColumnPick" data-column="{{item}}">
+          {{item === 'case' ? '案例' : item === 'trial' ? '试听' : item === 'inspect' ? '巡教' : '资讯'}}
+        </text>
+      </view>
+      <button class="btn" bindtap="submitPublish">发布</button>
+      <button class="btn btn-ghost" style="margin-top:12rpx" bindtap="closePublish">取消</button>
+    </view>
+  </view>
+</view>

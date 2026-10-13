@@ -6,6 +6,7 @@ import {
   Patch,
   Post,
   Req,
+  Res,
 } from '@nestjs/common';
 import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 import type { Request } from 'express';
@@ -71,6 +72,32 @@ export class AdminController {
   async overview(@Req() req: Request): Promise<AdminOverview> {
     const { userId } = req.userContext;
     return this.adminService.overview(userId);
+  }
+
+  /** 导出用户 CSV */
+  @Get('export/users')
+  async exportUsers(@Req() req: Request, @Res() res: {
+    setHeader: (name: string, value: string) => void;
+    send: (body: string) => void;
+  }): Promise<void> {
+    const { userId } = req.userContext;
+    const csv = await this.adminService.exportUsers();
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="users.csv"');
+    res.send(csv);
+  }
+
+  /** 导出发放/消课流水 CSV */
+  @Get('export/ledgers')
+  async exportLedgers(@Req() req: Request, @Res() res: {
+    setHeader: (name: string, value: string) => void;
+    send: (body: string) => void;
+  }): Promise<void> {
+    const { userId } = req.userContext;
+    const csv = await this.adminService.exportLedgers();
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="ledgers.csv"');
+    res.send(csv);
   }
 
   @Get('users')

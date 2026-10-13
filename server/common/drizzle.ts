@@ -1,5 +1,5 @@
 /**
- * 自持数据库接入（替代平台 @lark-apaas/fullstack-nestjs-core）。
+ 自持数据库接入（drizzle-orm + postgres.js）。
  *
  * 业务代码无需改动：这里重新导出与平台同名的 DRIZZLE_DATABASE token
  * 与 PostgresJsDatabase 类型，各 service 的 import 路径已批量指向本文件。

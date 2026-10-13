@@ -40,6 +40,19 @@
       </view>
     </view>
 
+    <!-- 管理员入口 -->
+    <view wx:if="{{profile.role === 'admin'}}" class="card">
+      <navigator url="/pages/admin/index" open-type="navigate">
+        <view class="row">
+          <view class="row gap-8">
+            <text class="subtitle">管理后台</text>
+            <text class="tag">管理员</text>
+          </view>
+          <text class="muted">›</text>
+        </view>
+      </navigator>
+    </view>
+
     <!-- 老师：我的学生 -->
     <view wx:if="{{profile.role === 'teacher'}}" class="card">
       <view class="subtitle" style="margin-bottom:16rpx">我的学生</view>

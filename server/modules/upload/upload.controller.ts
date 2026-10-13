@@ -1,36 +1,24 @@
-import { Controller, Get, Param, Post, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import type { Request } from 'express';
-import { extname, join } from 'node:path';
+import { memoryStorage } from 'multer';
 import { randomBytes } from 'node:crypto';
-import { existsSync, mkdirSync } from 'node:fs';
+import { extname } from 'node:path';
+import { StorageService } from '@server/common/storage/storage.service';
 
-const UPLOAD_DIR = join(process.cwd(), 'uploads');
 const MAX_SIZE = 5 * 1024 * 1024;
 
 @Controller('api/upload')
 export class UploadController {
-  constructor() {
-    if (!existsSync(UPLOAD_DIR)) mkdirSync(UPLOAD_DIR, { recursive: true });
-  }
+  constructor(private readonly storageService: StorageService) {}
 
   /**
    * 通用图片上传（打卡图片等）。
-   * 本地开发落盘到 uploads/；部署时把这里换成 OSS/COS 的 SDK 即可，
-   * 返回结构保持 { url } 不变，前端零改动。
+   * 存储后端由 StorageService 决定：本地磁盘或 S3 兼容 OSS（配置 OSS_* 即切换）。
    */
   @Post('image')
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: diskStorage({
-        destination: UPLOAD_DIR,
-        filename: (_req, file, callback) => {
-          const ext = extname(file.originalname) || '.jpg';
-          const name = `${Date.now()}_${randomBytes(6).toString('hex')}${ext}`;
-          callback(null, name);
-        },
-      }),
+      storage: memoryStorage(),
       limits: { fileSize: MAX_SIZE },
       fileFilter: (_req, file, callback) => {
         if (!/^image\//.test(file.mimetype)) {
@@ -41,20 +29,32 @@ export class UploadController {
       },
     }),
   )
-  uploadImage(@UploadedFile() file: { originalname: string; filename: string; mimetype: string }) {
+  async uploadImage(@UploadedFile() file: { originalname: string; buffer: Buffer; mimetype: string }) {
     if (!file) {
       return { url: '' };
     }
-    return { url: `/api/upload/file/${file.filename}` };
+    const ext = extname(file.originalname) || '.jpg';
+    const filename = `${Date.now()}_${randomBytes(6).toString('hex')}${ext}`;
+    const result = await this.storageService.save(filename, file.buffer, file.mimetype);
+    return { url: result.url };
   }
 
-  /** 读取已上传图片（带 token 访问） */
+  /** 读取已上传文件（本地存储时走此代理路由；OSS 公开读时直接访问 OSS URL） */
   @Get('file/:name')
-  getFile(
+  async getFile(
     @Param('name') name: string,
-    @Res() res: { sendFile: (path: string) => void },
-  ) {
-    const safe = name.replace(/[^\w.-]/g, '');
-    res.sendFile(join(UPLOAD_DIR, safe));
+    @Res() res: {
+      send: (body: Buffer) => void;
+      type: (mime: string) => void;
+      status: (code: number) => { send: (body: string) => void };
+    },
+  ): Promise<void> {
+    const result = await this.storageService.get(name);
+    if (!result) {
+      res.status(404).send('Not Found');
+      return;
+    }
+    res.type(result.mimetype);
+    res.send(result.content);
   }
 }
