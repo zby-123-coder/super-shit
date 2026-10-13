@@ -73,7 +73,7 @@
         </text>
       </view>
       <view class="row gap-8" style="margin-top:16rpx">
-        <button class="btn btn-sm btn-ghost" style="margin:0" data-title="{{item.title}}" bindtap="variant">生成变式题</button>
+        <button class="btn btn-sm btn-ghost" style="margin:0" data-title="{{item.title}}" bindtap="variant" data-subject="{{item.subject}}">生成变式题</button>
         <button wx:if="{{role === 'student' && item.status === 'open'}}"
                 class="btn btn-sm btn-ghost" style="margin:0" data-id="{{item.id}}" bindtap="markCorrected">标记已订正</button>
       </view>
@@ -88,6 +88,14 @@
       <textarea class="field" style="min-height:140rpx" placeholder="记录今天的完成情况"
                 value="{{checkinContent}}" data-field="checkinContent" bindinput="onCheckinInput"></textarea>
       <input class="field" placeholder="用时（分钟）" value="{{duration}}" data-field="duration" bindinput="onCheckinInput" />
+      <view class="row">
+        <text class="label">打卡图片（作业/错题照片）</text>
+        <button class="btn btn-sm btn-ghost" style="margin:0" bindtap="chooseImages">选择图片</button>
+      </view>
+      <view wx:if="{{checkinImages.length}}" class="row" style="flex-wrap:wrap;gap:12rpx">
+        <image wx:for="{{checkinImages}}" wx:key="*this" src="{{item}}" mode="aspectFill"
+               style="width:140rpx;height:140rpx;border-radius:12rpx" />
+      </view>
       <button class="btn" bindtap="submitCheckin">提交打卡</button>
     </view>
   </view>
@@ -101,6 +109,7 @@
         <text wx:for="{{presets}}" wx:key="*this" class="tag tag-s"
               data-text="{{item}}" bindtap="usePreset">{{item}}</text>
       </view>
+      <button class="btn btn-sm btn-ghost" style="margin:0" bindtap="genDraft">生成草稿评语</button>
       <textarea class="field" style="min-height:120rpx" placeholder="填写评语"
                 value="{{reviewComment}}" bindinput="onReviewInput"></textarea>
       <view class="row gap-16">

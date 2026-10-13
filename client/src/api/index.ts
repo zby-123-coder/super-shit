@@ -14,6 +14,7 @@ import type {
   ArticleListResponse,
   AssignRelationRequest,
   CheckinDTO,
+  CreateCheckinRequest,
   CreateChildRequest,
   FamilyDTO,
   CourseDTO,
@@ -131,10 +132,7 @@ export const taskApi = {
     request({ url: '/api/task', method: 'GET' }),
   create: (data: CreateTaskRequest): Promise<TaskDTO[]> =>
     request({ url: '/api/task', method: 'POST', data }),
-  checkin: (id: string, data: {
-    content?: string;
-    durationMin?: number;
-  }): Promise<CheckinDTO> =>
+  checkin: (id: string, data: CreateCheckinRequest): Promise<CheckinDTO> =>
     request({
       url: `/api/task/${id}/checkin`,
       method: 'POST',
@@ -231,6 +229,35 @@ export const reportApi = {
       method: 'GET',
       params: { studentUserId },
     }),
+};
+
+export const uploadApi = {
+  image: async (file: File): Promise<{ url: string }> => {
+    const form = new FormData();
+    form.append('file', file);
+    const token = getToken();
+    const response = await axiosForBackend.post('/api/upload/image', form, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+    return response.data as { url: string };
+  },
+};
+
+export const aiApi = {
+  status: (): Promise<{ provider: string }> =>
+    request({ url: '/api/ai/status', method: 'GET' }),
+  reviewDraft: (data: {
+    content: string;
+    durationMin: number;
+    taskTitle: string;
+  }): Promise<{ draft: string }> =>
+    request({ url: '/api/ai/review-draft', method: 'POST', data }),
+  variant: (data: {
+    subject: string;
+    title: string;
+    knowledgePoint?: string;
+  }): Promise<{ variant: string | null }> =>
+    request({ url: '/api/ai/variant', method: 'POST', data }),
 };
 
 export const demoApi = {

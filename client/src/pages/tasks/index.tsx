@@ -17,11 +17,8 @@ import { Textarea } from '@client/src/components/ui/textarea';
 import { EmptyBlock, LoadingBlock, PageHeader } from '@client/src/components/PageShell';
 import WrongQuestionBook from '@client/src/components/WrongQuestionBook';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@client/src/components/ui/tabs';
-import { taskApi } from '@client/src/api';
-import {
-  PRESET_COMMENTS,
-  generateReviewDraft,
-} from '@client/src/utils/review-draft';
+import { aiApi, taskApi, uploadApi } from '@client/src/api';
+import { PRESET_COMMENTS } from '@client/src/utils/review-draft';
 import { useAccount } from '@client/src/hooks/useAccount';
 import type { TaskDTO, TaskListResponse } from '@shared/api.interface';
 
@@ -42,6 +39,8 @@ const TasksPage = () => {
   const [duration, setDuration] = useState<string>('30');
   const [reviewTask, setReviewTask] = useState<TaskDTO | null>(null);
   const [reviewComment, setReviewComment] = useState<string>('');
+  const [checkinImages, setCheckinImages] = useState<string[]>([]);
+  const [uploading, setUploading] = useState<boolean>(false);
   const [createOpen, setCreateOpen] = useState<boolean>(false);
   const [newTask, setNewTask] = useState<{
     studentUserIds: string[];
@@ -72,10 +71,12 @@ const TasksPage = () => {
       await taskApi.checkin(checkinTask.id, {
         content: checkinContent,
         durationMin: Number(duration) || 0,
+        imageUrls: checkinImages,
       });
       toast.success('打卡成功，等待老师批阅');
       setCheckinTask(null);
       setCheckinContent('');
+      setCheckinImages([]);
       await load();
     } catch (error) {
       toast.error('打卡失败，请重试');
@@ -261,9 +262,52 @@ const TasksPage = () => {
               placeholder="用时（分钟）"
               aria-label="用时"
             />
+            <div className="flex flex-col gap-2">
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-primary">
+                上传图片（作业/错题照片）
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={async (event) => {
+                    const files = Array.from(event.target.files ?? []);
+                    if (files.length === 0) return;
+                    setUploading(true);
+                    try {
+                      const urls: string[] = [];
+                      for (const file of files) {
+                        const result = await uploadApi.image(file);
+                        urls.push(result.url);
+                      }
+                      setCheckinImages((prev) => [...prev, ...urls]);
+                    } catch (error) {
+                      toast.error('图片上传失败');
+                    } finally {
+                      setUploading(false);
+                    }
+                  }}
+                />
+              </label>
+              {uploading ? <span className="text-xs">上传中…</span> : null}
+              {checkinImages.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {checkinImages.map((url) => (
+                    <img
+                      key={url}
+                      src={url}
+                      alt="打卡图片"
+                      className="size-16 rounded-lg object-cover"
+                    />
+                  ))}
+                </div>
+              ) : null}
+            </div>
           </div>
           <DialogFooter>
-            <Button onClick={submitCheckin}>提交打卡</Button>
+            <Button onClick={submitCheckin} disabled={uploading}>
+              提交打卡
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -298,15 +342,18 @@ const TasksPage = () => {
             <Button
               size="sm"
               variant="secondary"
-              onClick={() =>
-                setReviewComment(
-                  generateReviewDraft({
+              onClick={async () => {
+                try {
+                  const result = await aiApi.reviewDraft({
                     content: reviewTask?.checkin?.content ?? '',
                     durationMin: reviewTask?.checkin?.durationMin ?? 0,
                     taskTitle: reviewTask?.title ?? '',
-                  }),
-                )
-              }
+                  });
+                  setReviewComment(result.draft);
+                } catch (error) {
+                  toast.error('草稿生成失败，请手动填写');
+                }
+              }}
             >
               生成草稿评语
             </Button>

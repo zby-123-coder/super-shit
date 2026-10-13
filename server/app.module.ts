@@ -13,6 +13,8 @@ import { TaskModule } from './modules/task/task.module';
 import { ProgressModule } from './modules/progress/progress.module';
 import { ContentModule } from './modules/content/content.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { AiModule } from './modules/ai/ai.module';
+import { UploadModule } from './modules/upload/upload.module';
 import { DemoModule } from './modules/demo/demo.module';
 import { ReportModule } from './modules/report/report.module';
 import { WrongQuestionModule } from './modules/wrong-question/wrong-question.module';
@@ -31,6 +33,8 @@ import { WrongQuestionModule } from './modules/wrong-question/wrong-question.mod
     ProgressModule,
     ContentModule,
     AdminModule,
+    AiModule,
+    UploadModule,
     DemoModule,
     ReportModule,
     WrongQuestionModule,

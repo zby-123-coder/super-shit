@@ -128,6 +128,38 @@ const api = {
   messages: () => request({ url: '/api/message' }),
   markAllRead: () => request({ url: '/api/message/read-all', method: 'PATCH' }),
 
+  // upload
+  uploadImage: (filePath) =>
+    new Promise((resolve, reject) => {
+      wx.uploadFile({
+        url: `${API_BASE}/api/upload/image`,
+        filePath,
+        name: 'file',
+        header: {
+          Authorization: `Bearer ${getToken()}`,
+          Cookie: 'suda-csrf-token=x',
+          'X-Suda-Csrf-Token': 'x',
+        },
+        success: (res) => {
+          try {
+            const body = JSON.parse(res.data);
+            if (body.url) resolve(body);
+            else reject(new Error((body.error && body.error.message) || '上传失败'));
+          } catch (e) {
+            reject(e);
+          }
+        },
+        fail: reject,
+      });
+    }),
+
+  // ai
+  aiStatus: () => request({ url: '/api/ai/status' }),
+  aiReviewDraft: (payload) =>
+    request({ url: '/api/ai/review-draft', method: 'POST', data: payload }),
+  aiVariant: (payload) =>
+    request({ url: '/api/ai/variant', method: 'POST', data: payload }),
+
   // admin
   overview: () => request({ url: '/api/admin/overview' }),
   users: () => request({ url: '/api/admin/users' }),

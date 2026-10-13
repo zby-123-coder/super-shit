@@ -29,6 +29,7 @@ Page({
     checkinTask: null,
     checkinContent: '',
     duration: '30',
+    checkinImages: [],
     // 批阅弹窗
     reviewVisible: false,
     reviewTask: null,
@@ -86,6 +87,29 @@ Page({
   onCheckinInput(e) {
     this.setData({ [e.currentTarget.dataset.field]: e.detail.value });
   },
+  chooseImages() {
+    wx.chooseMedia({
+      count: 3,
+      mediaType: ['image'],
+      success: async (res) => {
+        const files = res.tempFiles.map((f) => f.tempFilePath);
+        wx.showLoading({ title: '上传中' });
+        try {
+          const urls = [];
+          for (const filePath of files) {
+            const result = await require('../../utils/request.js').api.uploadImage(filePath);
+            urls.push(result.url);
+          }
+          this.setData({ checkinImages: [...this.data.checkinImages, ...urls] });
+        } catch (e) {
+          wx.showToast({ title: '上传失败', icon: 'none' });
+        } finally {
+          wx.hideLoading();
+        }
+      },
+    });
+  },
+
   async submitCheckin() {
     const task = this.data.checkinTask;
     if (!task) return;
@@ -93,9 +117,10 @@ Page({
       await api.checkin(task.id, {
         content: this.data.checkinContent,
         durationMin: Number(this.data.duration) || 0,
+        imageUrls: this.data.checkinImages,
       });
       wx.showToast({ title: '打卡成功', icon: 'success' });
-      this.setData({ checkinVisible: false });
+      this.setData({ checkinVisible: false, checkinImages: [] });
       this.load();
     } catch (err) {
       wx.showToast({ title: err.message || '打卡失败', icon: 'none' });
@@ -117,6 +142,21 @@ Page({
   onReviewInput(e) {
     this.setData({ reviewComment: e.detail.value });
   },
+  async genDraft() {
+    const task = this.data.reviewTask;
+    if (!task) return;
+    try {
+      const res = await require('../../utils/request.js').api.aiReviewDraft({
+        content: task.checkin?.content ?? '',
+        durationMin: task.checkin?.durationMin ?? 0,
+        taskTitle: task.title,
+      });
+      this.setData({ reviewComment: res.draft });
+    } catch (err) {
+      wx.showToast({ title: '草稿生成失败', icon: 'none' });
+    }
+  },
+
   async submitReview(status) {
     const task = this.data.reviewTask;
     if (!task?.checkin) return;
@@ -209,19 +249,20 @@ Page({
       wx.showToast({ title: err.message || '操作失败', icon: 'none' });
     }
   },
-  variant(e) {
-    const title = e.currentTarget.dataset.title;
-    const nums = title.match(/\d+(\.\d+)?/g);
-    if (!nums || !nums.length) {
-      wx.showToast({ title: '该题不适合自动变式', icon: 'none' });
-      return;
+  async variant(e) {
+    const { title, subject } = e.currentTarget.dataset;
+    try {
+      const res = await require('../../utils/request.js').api.aiVariant({
+        subject: subject || '数学',
+        title,
+      });
+      if (!res.variant) {
+        wx.showToast({ title: '该题不适合自动变式', icon: 'none' });
+        return;
+      }
+      wx.showModal({ title: '变式练习', content: res.variant, showCancel: false });
+    } catch (err) {
+      wx.showToast({ title: '生成失败', icon: 'none' });
     }
-    const variant = title.replace(/\d+(\.\d+)?/g, (m) => {
-      const n = Number(m);
-      const delta = Math.max(1, Math.round(n * 0.2));
-      const next = n + (Math.random() < 0.5 ? -1 : 1) * (1 + Math.floor(Math.random() * delta));
-      return next > 0 ? String(next) : m;
-    });
-    wx.showModal({ title: '变式练习', content: variant, showCancel: false });
   },
 });

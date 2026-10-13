@@ -17,8 +17,11 @@ export class AuthMiddleware implements NestMiddleware {
       next();
       return;
     }
-    const isPublic =
-      raw.includes('/api/auth/register') || raw.includes('/api/auth/login');
+    const isPublic = [
+      '/api/auth/register',
+      '/api/auth/login',
+      '/api/auth/wechat',
+    ].some((path) => raw.includes(path));
     const header = req.headers.authorization ?? '';
     const token = header.startsWith('Bearer ') ? header.slice(7) : '';
     const userId = token ? await this.authService.resolveToken(token) : null;

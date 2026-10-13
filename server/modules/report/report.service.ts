@@ -16,6 +16,7 @@ import {
 import { and, desc, eq, gte, lte } from 'drizzle-orm';
 import type { WeeklyReport, WeeklyReportSection } from '@shared/api.interface';
 import { AccountService } from '../account/account.service';
+import { AiService } from '@server/common/ai/ai.service';
 
 @Injectable()
 export class ReportService {
@@ -24,6 +25,7 @@ export class ReportService {
   constructor(
     @Inject(DRIZZLE_DATABASE) private readonly db: PostgresJsDatabase,
     private readonly accountService: AccountService,
+    private readonly aiService: AiService,
   ) {}
 
   /** 权限：学生看自己、家长看孩子、老师看学生 */
@@ -203,15 +205,36 @@ export class ReportService {
       suggestions.push('按当前节奏推进即可，可适当增加拓展练习');
     }
 
+    // 文案由 AI 层生成（LLM 或规则版），结构化 sections 仍由数据计算，保证准确
+    const aiText = await this.aiService.polishWeeklyReport({
+      studentName,
+      weekStart: weekStart.toISOString(),
+      weekEnd: now.toISOString(),
+      stats: {
+        taskTotal: tasks.length,
+        taskApproved: approved,
+        checkinCount: checkins.length,
+        totalMinutes: totalMin,
+        courseDone: doneCourses,
+        consumedLessons: consumed,
+        purchasedLessons: purchased,
+        remainingLessons: remaining,
+      },
+      progress: progresses.map((p) => ({
+        subject: p.subject,
+        chapter: p.chapter,
+        percent: p.percent,
+      })),
+    });
+
     const text = [
       `【${studentName} 学习周报】`,
       `${weekStart.toLocaleDateString('zh-CN')} - ${now.toLocaleDateString('zh-CN')}`,
       '',
+      aiText,
+      '',
       '◆ 本周概览',
       ...overview.lines.map((l) => `· ${l}`),
-      '',
-      '◆ 亮点',
-      ...highlights.map((l) => `· ${l}`),
       '',
       '◆ 待改进',
       ...improvements.map((l) => `· ${l}`),

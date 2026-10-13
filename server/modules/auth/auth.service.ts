@@ -4,6 +4,7 @@ import {
   Inject,
   Injectable,
   Logger,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import {
@@ -204,6 +205,83 @@ export class AuthService {
       name: payload.name.trim(),
       inviteCode,
       familyName,
+    };
+  }
+
+  /**
+   * 微信一键登录：code 换 openid → 已有微信用户直接登录，
+   * 否则自动创建家长账号（之后可在家庭内添加孩子）。
+   * 未配置 WECHAT_APPID / WECHAT_SECRET 时明确报错，不影响其他登录方式。
+   */
+  async loginByWechat(code: string): Promise<AuthResponse> {
+    const appid = process.env.WECHAT_APPID ?? '';
+    const secret = process.env.WECHAT_SECRET ?? '';
+    if (!appid || !secret) {
+      throw new ServiceUnavailableException(
+        '微信登录未配置（WECHAT_APPID / WECHAT_SECRET），请使用账号密码登录',
+      );
+    }
+    const url =
+      `https://api.weixin.qq.com/sns/jscode2session?appid=${appid}` +
+      `&secret=${secret}&js_code=${encodeURIComponent(code)}&grant_type=authorization_code`;
+    const res = await fetch(url);
+    const data = (await res.json()) as {
+      openid?: string;
+      errcode?: number;
+      errmsg?: string;
+    };
+    if (!data.openid) {
+      throw new UnauthorizedException(
+        `微信登录失败：${data.errmsg ?? '未知错误'}`,
+      );
+    }
+    const openid = data.openid;
+
+    const existing = await this.db
+      .select()
+      .from(appProfile)
+      .where(eq(appProfile.wechatOpenid, openid))
+      .limit(1);
+    let profile = existing[0];
+    if (!profile) {
+      const userId = this.newUserId();
+      const inviteCode = randomBytes(3).toString('hex').toUpperCase();
+      const loginName = `wx_${randomBytes(6).toString('hex')}`;
+      const created = await this.db
+        .insert(appProfile)
+        .values({
+          userId,
+          role: 'parent',
+          name: '微信用户',
+          inviteCode,
+          wechatOpenid: openid,
+        })
+        .returning();
+      profile = created[0];
+      await this.db.insert(authCredential).values({
+        userId,
+        loginName,
+        // 微信用户不使用密码登录；此处存随机不可用哈希占位
+        passwordHash: hashPassword(randomBytes(16).toString('hex')),
+      });
+    }
+    const token = await this.issueSession(
+      profile.userId,
+      profile.role as UserRole,
+    );
+    return {
+      token,
+      userId: profile.userId,
+      role: profile.role as UserRole,
+      name: profile.name ?? '',
+      inviteCode: profile.inviteCode ?? '',
+      familyName: profile.familyId
+        ? ((await this.db
+            .select()
+            .from(family)
+            .where(eq(family.id, profile.familyId))
+            .limit(1))[0]?.name ?? '')
+        : '',
     };
   }
 

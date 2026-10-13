@@ -389,6 +389,7 @@ export const appProfile = pgTable("app_profile", {
   inviteCode: varchar("invite_code", { length: 16 }).unique(),
   notifyMute: boolean("notify_mute").notNull().default(false),
   familyId: uuid("family_id"),
+  wechatOpenid: varchar("wechat_openid", { length: 64 }),
   // System field: Creation time (auto-filled, do not modify)
   createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   // System field: Creator (auto-filled, do not modify)
