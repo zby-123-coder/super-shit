@@ -1,0 +1,47 @@
+<view class="page">
+  <view class="hero">
+    <view class="row">
+      <view>
+        <view class="title" style="font-size:36rpx">课程表</view>
+        <view class="muted" style="margin-top:6rpx">
+          {{week ? week.weekStart.slice(5, 10) + ' ~ ' + week.weekEnd.slice(5, 10) : ''}}
+        </view>
+      </view>
+      <view class="row gap-8">
+        <view class="btn btn-sm btn-light" data-delta="-1" bindtap="shiftWeek">上一周</view>
+        <view class="btn btn-sm btn-light" bindtap="shiftWeek" data-delta="0">本周</view>
+        <view class="btn btn-sm btn-light" data-delta="1" bindtap="shiftWeek">下一周</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="section">
+    <view wx:if="{{loading}}" class="empty">加载中…</view>
+    <view wx:elif="{{groups.length === 0}}" class="empty">本周暂无课程安排</view>
+
+    <block wx:for="{{groups}}" wx:key="day" wx:for-item="group">
+      <view class="row" style="margin:8rpx 4rpx 16rpx">
+        <text class="subtitle">{{group.day}}</text>
+        <text class="muted">{{group.weekday}}</text>
+      </view>
+      <view wx:for="{{group.items}}" wx:key="id" class="item">
+        <view class="row-top">
+          <view style="min-width:0">
+            <view class="subtitle">{{item.timeText}} {{item.subject}}</view>
+            <view class="muted" style="margin-top:6rpx">
+              {{role === 'teacher' ? '学生：' + item.studentName : '老师：' + item.teacherName}}{{item.location ? ' · ' + item.location : ''}} · {{item.lessonCount}} 课时
+            </view>
+          </view>
+          <text class="tag {{item.status === 'done' ? 'tag-g' : item.status === 'leave' ? 'tag-r' : ''}}">
+            {{item.status === 'done' ? '已上' : item.status === 'leave' ? '请假' : '待上'}}
+          </text>
+        </view>
+        <view wx:if="{{(role === 'teacher' || role === 'admin') && item.status === 'pending'}}"
+              class="row gap-8" style="margin-top:16rpx">
+          <button class="btn btn-sm" style="margin:0" data-id="{{item.id}}" bindtap="consume">确认上课并消课</button>
+          <button class="btn btn-sm btn-ghost" style="margin:0" data-id="{{item.id}}" bindtap="markLeave">标记请假</button>
+        </view>
+      </view>
+    </block>
+  </view>
+</view>

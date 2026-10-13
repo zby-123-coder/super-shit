@@ -1,0 +1,109 @@
+<view class="page">
+  <view class="hero">
+    <view class="row">
+      <view style="min-width:0">
+        <view class="title" style="font-size:36rpx">{{profile.name || '未命名'}}</view>
+        <view class="muted" style="margin-top:6rpx">
+          {{roleText}}{{profile.grade ? ' · ' + profile.grade : ''}}{{profile.subjectTags ? ' · ' + profile.subjectTags : ''}}
+        </view>
+      </view>
+      <view class="btn btn-sm btn-light" bindtap="openEdit">编辑资料</view>
+    </view>
+  </view>
+
+  <view class="section">
+    <!-- 家庭卡 -->
+    <view wx:if="{{family}}" class="card">
+      <view class="row" style="margin-bottom:16rpx">
+        <view class="subtitle">家庭：{{family.name}}</view>
+        <button wx:if="{{profile.role === 'parent'}}" class="btn btn-sm" style="margin:0" bindtap="openChild">添加孩子</button>
+      </view>
+      <view class="muted" style="margin-bottom:16rpx">
+        家庭邀请码：<text class="bold text-primary">{{family.inviteCode}}</text>（另一位家长注册时填写即可加入）
+      </view>
+      <view wx:for="{{family.parents}}" wx:key="userId" class="row" style="padding:14rpx 0;border-bottom:1rpx solid #F0F1F4">
+        <view class="row gap-8">
+          <text class="subtitle">{{item.name}}</text>
+          <text class="tag {{item.userId === family.ownerUserId ? '' : 'tag-s'}}">
+            {{item.userId === family.ownerUserId ? '户主' : '家长'}}
+          </text>
+        </view>
+        <text wx:if="{{item.userId === profile.userId}}" class="tiny">我</text>
+      </view>
+      <view wx:for="{{family.students}}" wx:key="userId" class="row" style="padding:14rpx 0;border-bottom:1rpx solid #F0F1F4">
+        <view class="row gap-8">
+          <text class="subtitle">{{item.name}}</text>
+          <text class="tag tag-s">孩子</text>
+          <text wx:if="{{item.grade}}" class="tiny">{{item.grade}}</text>
+        </view>
+        <text wx:if="{{item.userId === profile.userId}}" class="tiny">我</text>
+      </view>
+    </view>
+
+    <!-- 老师：我的学生 -->
+    <view wx:if="{{profile.role === 'teacher'}}" class="card">
+      <view class="subtitle" style="margin-bottom:16rpx">我的学生</view>
+      <view class="row gap-8" style="margin-bottom:16rpx">
+        <input class="field" style="flex:1" placeholder="输入学生邀请码" value="{{studentCode}}" bindinput="onStudentCode" />
+        <button class="btn btn-sm" style="margin:0" bindtap="addStudent">添加</button>
+      </view>
+      <view wx:for="{{me.students}}" wx:key="userId" class="row" style="padding:12rpx 0;border-bottom:1rpx solid #F0F1F4">
+        <text class="subtitle">{{item.name}}</text>
+        <text class="tag tag-s">学生</text>
+      </view>
+    </view>
+
+    <!-- 消息中心 -->
+    <view class="card">
+      <view class="row" style="margin-bottom:12rpx">
+        <view class="subtitle">消息中心</view>
+        <view class="row gap-16">
+          <text class="tiny">免打扰 {{editForm.notifyMute ? '开' : '关'}}</text>
+          <text class="text-primary" style="font-size:24rpx" bindtap="markAllRead">全部已读</text>
+        </view>
+      </view>
+      <view wx:if="{{!messages.length}}" class="empty">暂无消息</view>
+      <view wx:for="{{messages.slice(0, 12)}}" wx:key="id" class="col gap-2"
+            style="padding:18rpx 0;border-bottom:1rpx solid #F0F1F4">
+        <view class="row">
+          <view class="row gap-8" style="min-width:0">
+            <text wx:if="{{item.priority === 'urgent'}}" class="tag tag-o">重要</text>
+            <text class="subtitle ellipsis">{{item.title}}</text>
+          </view>
+          <view wx:if="{{!item.isRead}}" style="width:12rpx;height:12rpx;border-radius:50%;background:#4F5FE8"></view>
+        </view>
+        <text class="muted clamp2">{{item.content}}</text>
+        <text class="tiny">{{item.createdAt.slice(5, 16).replace('T', ' ')}}</text>
+      </view>
+    </view>
+
+    <button class="btn btn-ghost" bindtap="logout">退出登录</button>
+  </view>
+
+  <!-- 编辑资料 -->
+  <view wx:if="{{editVisible}}" class="mask" bindtap="closeEdit">
+    <view class="sheet" catchtap="noop">
+      <view class="subtitle">编辑资料</view>
+      <input class="field" placeholder="姓名" value="{{editForm.name}}" data-field="name" bindinput="onEditInput" />
+      <input class="field" placeholder="年级（选填）" value="{{editForm.grade}}" data-field="grade" bindinput="onEditInput" />
+      <input class="field" placeholder="任教科目（选填）" value="{{editForm.subjectTags}}" data-field="subjectTags" bindinput="onEditInput" />
+      <view class="row">
+        <text class="label">免打扰（普通通知不送达，重要通知仍送达）</text>
+        <switch checked="{{editForm.notifyMute}}" bindchange="toggleMute" />
+      </view>
+      <button class="btn" bindtap="saveEdit">保存</button>
+    </view>
+  </view>
+
+  <!-- 添加孩子 -->
+  <view wx:if="{{childVisible}}" class="mask" bindtap="closeChild">
+    <view class="sheet" catchtap="noop">
+      <view class="subtitle">添加孩子</view>
+      <input class="field" placeholder="孩子姓名" value="{{childForm.name}}" data-field="name" bindinput="onChildInput" />
+      <input class="field" placeholder="年级（选填）" value="{{childForm.grade}}" data-field="grade" bindinput="onChildInput" />
+      <input class="field" placeholder="孩子登录名（≥4 位）" value="{{childForm.loginName}}" data-field="loginName" bindinput="onChildInput" />
+      <input class="field" password placeholder="初始密码（≥6 位）" value="{{childForm.password}}" data-field="password" bindinput="onChildInput" />
+      <button class="btn" bindtap="submitChild">创建并加入家庭</button>
+    </view>
+  </view>
+</view>

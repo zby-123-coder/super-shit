@@ -1,0 +1,141 @@
+<view class="page">
+  <view class="hero">
+    <view class="row">
+      <view>
+        <view class="title" style="font-size:36rpx">学习任务</view>
+        <view class="muted" style="margin-top:6rpx">
+          {{isStaff ? '待批阅 ' + (tasks ? tasks.pendingCount : 0) + ' 个任务' : '待完成 ' + (tasks ? tasks.pendingCount : 0) + ' · 连续打卡 ' + (tasks ? tasks.streakDays : 0) + ' 天'}}
+        </view>
+      </view>
+      <view wx:if="{{isStaff}}" class="btn btn-sm btn-light" bindtap="openCreate">布置任务</view>
+    </view>
+    <view class="row" style="margin-top:20rpx;gap:16rpx">
+      <view class="btn btn-sm {{tab === 'tasks' ? '' : 'btn-light'}}" style="flex:1" data-tab="tasks" bindtap="switchTab">学习任务</view>
+      <view class="btn btn-sm {{tab === 'wrong' ? '' : 'btn-light'}}" style="flex:1" data-tab="wrong" bindtap="switchTab">错题本</view>
+    </view>
+  </view>
+
+  <view class="section" wx:if="{{tab === 'tasks'}}">
+    <view wx:if="{{loading}}" class="empty">加载中…</view>
+    <view wx:elif="{{!tasks.items.length}}" class="empty">暂无学习任务</view>
+
+    <view wx:for="{{tasks.items}}" wx:key="id" class="item">
+      <view class="row-top">
+        <view style="min-width:0">
+          <view class="subtitle">{{item.title}}</view>
+          <view class="muted" style="margin-top:6rpx">
+            {{role === 'student' ? '老师：' + item.teacherName : '学生：' + item.studentName}}{{item.subject ? ' · ' + item.subject : ''}}{{item.dueAt ? ' · 截止 ' + item.dueAt.slice(5, 10) : ''}}
+          </view>
+        </view>
+        <text class="tag {{item.status === 'approved' ? 'tag-g' : item.status === 'rejected' ? 'tag-r' : item.status === 'submitted' ? 'tag-o' : ''}}">
+          {{item.status === 'open' ? '待完成' : item.status === 'submitted' ? '待批阅' : item.status === 'approved' ? '已通过' : '已退回'}}
+        </text>
+      </view>
+
+      <view wx:if="{{item.checkin}}" class="card" style="margin-top:16rpx;background:#F7F8FA;box-shadow:none">
+        <view class="muted">打卡：{{item.checkin.content || '（未填写文字）'}}</view>
+        <view class="tiny" style="margin-top:6rpx">
+          用时 {{item.checkin.durationMin}} 分钟 · {{item.checkin.createdAt.slice(5, 16).replace('T', ' ')}}
+        </view>
+        <view wx:if="{{item.checkin.reviewComment}}" class="text-primary" style="font-size:24rpx;margin-top:6rpx">
+          老师评语：{{item.checkin.reviewComment}}
+        </view>
+      </view>
+
+      <view class="row gap-8" style="margin-top:16rpx">
+        <button wx:if="{{role === 'student' && item.status !== 'approved'}}"
+                class="btn btn-sm" style="margin:0" data-id="{{item.id}}" bindtap="openCheckin">
+          {{item.checkin ? '再次打卡' : '去打卡'}}
+        </button>
+        <button wx:if="{{isStaff && item.status === 'submitted'}}"
+                class="btn btn-sm" style="margin:0" data-id="{{item.id}}" bindtap="openReview">批阅</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ===== 错题本 ===== -->
+  <view class="section" wx:elif="{{tab === 'wrong'}}">
+    <view class="row" style="margin-bottom:16rpx">
+      <text class="muted">共 {{wrongItems.length}} 题</text>
+      <button wx:if="{{role === 'student'}}" class="btn btn-sm" style="margin:0" bindtap="openWrong">＋ 录入错题</button>
+    </view>
+    <view wx:if="{{!wrongItems.length}}" class="empty">暂无错题，继续保持</view>
+    <view wx:for="{{wrongItems}}" wx:key="id" class="item">
+      <view class="row-top">
+        <view style="min-width:0">
+          <view class="subtitle">{{item.title}}</view>
+          <view class="muted" style="margin-top:6rpx">
+            {{item.subject}}{{item.chapter ? ' · ' + item.chapter : ''}}{{item.reason ? ' · 错因：' + item.reason : ''}}
+          </view>
+        </view>
+        <text class="tag {{item.status === 'corrected' ? 'tag-g' : ''}}">
+          {{item.status === 'corrected' ? '已订正' : '待订正'}}
+        </text>
+      </view>
+      <view class="row gap-8" style="margin-top:16rpx">
+        <button class="btn btn-sm btn-ghost" style="margin:0" data-title="{{item.title}}" bindtap="variant">生成变式题</button>
+        <button wx:if="{{role === 'student' && item.status === 'open'}}"
+                class="btn btn-sm btn-ghost" style="margin:0" data-id="{{item.id}}" bindtap="markCorrected">标记已订正</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ===== 打卡弹窗 ===== -->
+  <view wx:if="{{checkinVisible}}" class="mask" bindtap="closeCheckin">
+    <view class="sheet" catchtap="noop">
+      <view class="subtitle">任务打卡</view>
+      <view class="muted">{{checkinTask.title}}</view>
+      <textarea class="field" style="min-height:140rpx" placeholder="记录今天的完成情况"
+                value="{{checkinContent}}" data-field="checkinContent" bindinput="onCheckinInput"></textarea>
+      <input class="field" placeholder="用时（分钟）" value="{{duration}}" data-field="duration" bindinput="onCheckinInput" />
+      <button class="btn" bindtap="submitCheckin">提交打卡</button>
+    </view>
+  </view>
+
+  <!-- ===== 批阅弹窗 ===== -->
+  <view wx:if="{{reviewVisible}}" class="mask" bindtap="closeReview">
+    <view class="sheet" catchtap="noop">
+      <view class="subtitle">批阅打卡</view>
+      <view class="muted">{{reviewTask.studentName}} · {{reviewTask.title}}</view>
+      <view class="row" style="flex-wrap:wrap;gap:12rpx">
+        <text wx:for="{{presets}}" wx:key="*this" class="tag tag-s"
+              data-text="{{item}}" bindtap="usePreset">{{item}}</text>
+      </view>
+      <textarea class="field" style="min-height:120rpx" placeholder="填写评语"
+                value="{{reviewComment}}" bindinput="onReviewInput"></textarea>
+      <view class="row gap-16">
+        <button class="btn btn-ghost" style="flex:1" bindtap="submitReview" data-status="rejected">退回重做</button>
+        <button class="btn" style="flex:1" data-status="approved" bindtap="submitReview">通过</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ===== 布置弹窗 ===== -->
+  <view wx:if="{{createVisible}}" class="mask" bindtap="closeCreate">
+    <view class="sheet" catchtap="noop">
+      <view class="subtitle">布置学习任务</view>
+      <text class="label">选择学生（已选 {{picked.length}}）</text>
+      <view class="col gap-4" style="max-height:200rpx;overflow-y:auto">
+        <label wx:for="{{students}}" wx:key="userId" class="row" style="padding:12rpx 0">
+          <checkbox value="{{item.userId}}" checked="{{picked.includes(item.userId)}}" data-id="{{item.userId}}" bindtap="toggleStudent" />
+          <text style="flex:1">{{item.name}}{{item.grade ? '（' + item.grade + '）' : ''}}</text>
+        </label>
+      </view>
+      <input class="field" placeholder="任务标题" value="{{form.title}}" data-field="title" bindinput="onFormInput" />
+      <textarea class="field" placeholder="任务要求（选填）" value="{{form.content}}" data-field="content" bindinput="onFormInput"></textarea>
+      <input class="field" placeholder="截止时间，如 2026-10-20 20:00" value="{{form.dueAt}}" data-field="dueAt" bindinput="onFormInput" />
+      <button class="btn" bindtap="submitCreate">发布任务</button>
+    </view>
+  </view>
+
+  <!-- ===== 错题录入弹窗 ===== -->
+  <view wx:if="{{wrongVisible}}" class="mask" bindtap="closeWrong">
+    <view class="sheet" catchtap="noop">
+      <view class="subtitle">录入错题</view>
+      <input class="field" placeholder="科目" value="{{wrongForm.subject}}" data-field="subject" bindinput="onWrongInput" />
+      <textarea class="field" placeholder="题干" value="{{wrongForm.title}}" data-field="title" bindinput="onWrongInput"></textarea>
+      <input class="field" placeholder="错因（选填）" value="{{wrongForm.reason}}" data-field="reason" bindinput="onWrongInput" />
+      <button class="btn" bindtap="submitWrong">保存</button>
+    </view>
+  </view>
+</view>

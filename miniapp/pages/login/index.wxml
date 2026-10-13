@@ -1,0 +1,97 @@
+<view class="page">
+  <view class="hero">
+    <view class="title" style="font-size:40rpx">家教团队学习管理平台</view>
+    <view class="muted" style="margin-top:8rpx">
+      {{mode === 'login' ? '登录你的账号' : '注册新账号'}}
+    </view>
+  </view>
+
+  <view class="section">
+    <view class="card">
+      <view class="row" style="margin-bottom:24rpx">
+        <view
+          class="btn btn-sm {{mode === 'login' ? '' : 'btn-ghost'}}"
+          data-mode="login"
+          bindtap="switchMode"
+          style="flex:1;margin-right:12rpx"
+        >登录</view>
+        <view
+          class="btn btn-sm {{mode === 'register' ? '' : 'btn-ghost'}}"
+          data-mode="register"
+          bindtap="switchMode"
+          style="flex:1"
+        >注册</view>
+      </view>
+
+      <view class="field-block">
+        <input
+          class="field"
+          placeholder="登录名（手机号或账号）"
+          value="{{loginName}}"
+          data-field="loginName"
+          bindinput="onInput"
+        />
+      </view>
+      <view class="field-block">
+        <input
+          class="field"
+          password
+          placeholder="密码"
+          value="{{password}}"
+          data-field="password"
+          bindinput="onInput"
+        />
+      </view>
+
+      <block wx:if="{{mode === 'register'}}">
+        <view class="field-block">
+          <input
+            class="field"
+            placeholder="姓名"
+            value="{{name}}"
+            data-field="name"
+            bindinput="onInput"
+          />
+        </view>
+        <view class="field-block">
+          <text class="label">选择身份</text>
+          <view class="row" style="flex-wrap:wrap;gap:16rpx">
+            <view
+              wx:for="{{['student','parent','teacher']}}"
+              wx:key="*this"
+              class="btn btn-sm {{role === item ? '' : 'btn-ghost'}}"
+              data-role="{{item}}"
+              bindtap="pickRole"
+            >{{item === 'student' ? '学生' : item === 'parent' ? '家长' : '老师'}}</view>
+          </view>
+        </view>
+        <view class="field-block">
+          <input
+            class="field"
+            placeholder="{{role === 'student' ? '年级（选填）' : role === 'teacher' ? '任教科目（选填）' : '备注（选填）'}}"
+            value="{{extra}}"
+            data-field="extra"
+            bindinput="onInput"
+          />
+        </view>
+        <view wx:if="{{role === 'student' || role === 'parent'}}" class="field-block">
+          <input
+            class="field"
+            placeholder="{{role === 'student' ? '家庭邀请码（必填）' : '家庭邀请码（选填，加入已有家庭）'}}"
+            value="{{familyCode}}"
+            data-field="familyCode"
+            bindinput="onInput"
+          />
+        </view>
+      </block>
+
+      <button class="btn" loading="{{submitting}}" bindtap="submit">
+        {{mode === 'login' ? '登录' : '注册并进入'}}
+      </button>
+
+      <view wx:if="{{mode === 'register'}}" class="tiny" style="margin-top:16rpx;line-height:1.6">
+        家长留空邀请码则创建新家庭（成为户主）；学生必须填写家长提供的家庭邀请码。
+      </view>
+    </view>
+  </view>
+</view>
