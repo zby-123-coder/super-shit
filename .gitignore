@@ -64,3 +64,4 @@ pnpm-lock.yaml
 .agent/
 .npm_cache
 uploads/
+data/

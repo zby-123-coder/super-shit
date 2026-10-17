@@ -23,7 +23,8 @@
     "type:check:server": "tsc --noEmit --project tsconfig.node.json",
     "dev:local": "node ./scripts/dev-local.js",
     "build": "npm run build:server && npm run build:client",
-    "test": "bash scripts/itest.sh"
+    "test": "bash scripts/itest.sh",
+    "fetch:feeds": "node scripts/fetchers/fetch-feeds.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1150.0",
