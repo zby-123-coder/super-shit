@@ -159,6 +159,14 @@ const api = {
     request({ url: '/api/ai/review-draft', method: 'POST', data: payload }),
   aiVariant: (payload) =>
     request({ url: '/api/ai/variant', method: 'POST', data: payload }),
+  gradeHomework: (taskId) =>
+    request({ url: `/api/ai/grade-homework/${taskId}`, method: 'POST' }),
+
+  // question-bank
+  qbRecommend: (payload) =>
+    request({ url: '/api/question-bank/recommend', method: 'POST', data: payload }),
+  qbCreate: (payload) =>
+    request({ url: '/api/question-bank', method: 'POST', data: payload }),
 
   // admin
   overview: () => request({ url: '/api/admin/overview' }),

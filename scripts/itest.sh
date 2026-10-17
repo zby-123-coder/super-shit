@@ -91,6 +91,21 @@ echo "=== 9. 消息与鉴权 ==="
 expect "$(api GET /api/message "$S1")" 200 "学生看消息"
 expect "$(api GET /api/account/me "")" 401 "无token访问被拒"
 
+echo "=== 10. AI 识图批改权限（学生/未绑定老师 403，带班老师 201） ==="
+TASK_ID2=$($PSQL -d "$DB" -tAc "select id from study_task where student_user_id='$S1_ID' order by _created_at desc limit 1")
+expect "$(api POST "/api/ai/grade-homework/$TASK_ID2" "$S1")" 403 "学生越权识图批改"
+expect "$(api POST "/api/ai/grade-homework/$TASK_ID2" "$T2")" 403 "未绑定老师越权识图批改"
+expect "$(api POST "/api/ai/grade-homework/$TASK_ID2" "$T1")" 201 "带班老师识图批改"
+
+echo "=== 11. 题库与举一反三（学生可推荐，录题仅老师） ==="
+expect "$(api POST /api/question-bank/recommend "$S1" '{"subject":"数学","knowledgePoint":"二次函数最值","count":3}')" 201 "学生获取同类题推荐"
+expect "$(api POST /api/question-bank "$S1" '{"subject":"数学","title":"x"}')" 403 "学生越权录题"
+expect "$(api POST /api/question-bank "$T1" '{"subject":"数学","knowledgePoint":"联调知识点","title":"联调录题"}')" 201 "老师录题"
+
+echo "=== 12. 运营工作流（学生 403，管理员可用） ==="
+expect "$(api POST /api/ops/generate "$S1" '{"grade":"初二","region":"杭州","subject":"数学"}')" 403 "学生越权使用运营台"
+expect "$(api POST /api/ops/generate "$ADMIN" '{"grade":"初二","region":"杭州","subject":"数学","material":"联调素材"}')" 201 "管理员生成运营文案"
+
 echo ""
 echo "========== RESULT: $PASS passed, $FAIL failed =========="
 [ "$FAIL" -eq 0 ]

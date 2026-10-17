@@ -467,6 +467,25 @@ export const wrongQuestion = pgTable("wrong_question", {
   index("idx_wq_student").on(table.studentUserId, table.createdAt),
 ]);
 
+export const questionBank = pgTable("question_bank", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  subject: varchar("subject", { length: 64 }).notNull(),
+  chapter: varchar("chapter", { length: 255 }),
+  knowledgePoint: varchar("knowledge_point", { length: 255 }),
+  title: text("title").notNull(),
+  answer: text("answer"),
+  analysis: text("analysis"),
+  difficulty: varchar("difficulty", { length: 16 }).notNull().default('medium'),
+  source: varchar("source", { length: 32 }).notNull().default('manual'),
+  useCount: integer("use_count").notNull().default(0),
+  createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  createdBy: varchar("_created_by", { length: 64 }),
+  updatedAt: customTimestamptz("_updated_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedBy: varchar("_updated_by", { length: 64 }),
+}, (table) => [
+  index("idx_qb_kp").on(table.subject, table.knowledgePoint),
+]);
+
 // table aliases
 export const appProfileTable = appProfile;
 export const articleTable = article;

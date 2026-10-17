@@ -73,7 +73,7 @@
         </text>
       </view>
       <view class="row gap-8" style="margin-top:16rpx">
-        <button class="btn btn-sm btn-ghost" style="margin:0" data-title="{{item.title}}" bindtap="variant" data-subject="{{item.subject}}">生成变式题</button>
+        <button class="btn btn-sm btn-ghost" style="margin:0" data-title="{{item.title}}" bindtap="variant" data-subject="{{item.subject}}" data-title="{{item.title}}" data-kp="{{item.knowledgePoint || item.chapter}}">举一反三</button>
         <button wx:if="{{role === 'student' && item.status === 'open'}}"
                 class="btn btn-sm btn-ghost" style="margin:0" data-id="{{item.id}}" bindtap="markCorrected">标记已订正</button>
       </view>
@@ -108,6 +108,21 @@
       <view class="row" style="flex-wrap:wrap;gap:12rpx">
         <text wx:for="{{presets}}" wx:key="*this" class="tag tag-s"
               data-text="{{item}}" bindtap="usePreset">{{item}}</text>
+      </view>
+      <view wx:if="{{reviewTask.checkin && reviewTask.checkin.imageUrls && reviewTask.checkin.imageUrls.length}}" class="card" style="margin:0 0 16rpx">
+        <view class="row" style="margin-bottom:12rpx">
+          <text class="subtitle">AI 识图批改（{{reviewTask.checkin.imageUrls.length}} 张）</text>
+          <button class="btn btn-sm btn-ghost" style="margin:0" bindtap="gradeHomework" disabled="{{grading}}">
+            {{grading ? '识别中…' : '开始批改'}}
+          </button>
+        </view>
+        <view wx:if="{{gradeResult.items.length}}">
+          <view wx:for="{{gradeResult.items}}" wx:key="questionNo" class="row" style="align-items:flex-start;padding:8rpx 0">
+            <text style="color:{{item.isCorrect ? '#12934A' : '#D93025'}}">{{item.isCorrect ? '✓' : '✗'}}</text>
+            <text style="flex:1;font-size:26rpx;margin-left:12rpx">第 {{item.questionNo}} 题{{item.errorType ? '（' + item.errorType + '）' : ''}}：{{item.comment}}</text>
+          </view>
+        </view>
+        <text wx:if="{{gradeResult.summary}}" style="font-size:24rpx;color:#8A9099">{{gradeResult.summary}}</text>
       </view>
       <button class="btn btn-sm btn-ghost" style="margin:0" bindtap="genDraft">生成草稿评语</button>
       <textarea class="field" style="min-height:120rpx" placeholder="填写评语"

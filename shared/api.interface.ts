@@ -82,6 +82,59 @@ export interface LoginRequest {
   password: string;
 }
 
+export interface OpsPostDraft {
+  platform: string;
+  title: string;
+  text: string;
+}
+
+export interface OpsGenerateRequest {
+  grade: string;
+  region: string;
+  subject: string;
+  material?: string;
+  saveDraft?: boolean;
+}
+
+export interface OpsGenerateResponse {
+  available: boolean;
+  summary: string;
+  posts: OpsPostDraft[];
+  draftId: string | null;
+}
+
+export interface QuestionBankItem {
+  id: string;
+  subject: string;
+  chapter: string;
+  knowledgePoint: string;
+  title: string;
+  answer: string;
+  analysis: string;
+  difficulty: 'easy' | 'medium' | 'hard';
+  source: string;
+}
+
+export interface RecommendQuestionsRequest {
+  subject: string;
+  knowledgePoint: string;
+  chapter?: string;
+  count?: number;
+}
+
+export interface HomeworkGradeItem {
+  questionNo: string;
+  isCorrect: boolean;
+  errorType?: string;
+  comment: string;
+}
+
+export interface HomeworkGradeResult {
+  available: boolean;
+  items: HomeworkGradeItem[];
+  summary: string;
+}
+
 export interface AuthResponse {
   token: string;
   userId: string;

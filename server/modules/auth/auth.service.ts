@@ -331,7 +331,9 @@ export class AuthService {
   }
 
   /** 解析 token → userId；未命中/过期/已撤销均返回 null */
-  async resolveToken(token: string): Promise<string | null> {
+  async resolveToken(
+    token: string,
+  ): Promise<{ userId: string; role: UserRole } | null> {
     if (!token) return null;
     const tokenHash = createHash('sha256').update(token).digest('hex');
     const rows: SessionRow[] = await this.db
@@ -351,7 +353,14 @@ export class AuthService {
       .update(authSession)
       .set({ lastUsedAt: new Date() })
       .where(eq(authSession.id, session.id));
-    return session.userId;
+    // 角色从档案读取（改角色后下次请求即生效，无需重新登录）
+    const profiles = await this.db
+      .select({ role: appProfile.role })
+      .from(appProfile)
+      .where(eq(appProfile.userId, session.userId))
+      .limit(1);
+    const role = (profiles[0]?.role ?? 'student') as UserRole;
+    return { userId: session.userId, role };
   }
 
   async revoke(token: string): Promise<void> {

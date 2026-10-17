@@ -40,6 +40,56 @@ export interface VariantInput {
   knowledgePoint?: string;
 }
 
+export interface HomeworkGradeInput {
+  subject: string;
+  taskTitle: string;
+  /** 打卡图片的 base64 data URL 列表 */
+  images: string[];
+  /** 学生自述完成情况（可选，辅助判断） */
+  content?: string;
+}
+
+export interface HomeworkGradeItem {
+  questionNo: string;
+  isCorrect: boolean;
+  /** 错因归类：概念不清 / 计算失误 / 审题偏差 / 步骤缺失 / 未作答 */
+  errorType?: string;
+  /** 解析或鼓励 */
+  comment: string;
+}
+
+export interface HomeworkGradeResult {
+  /** false = 当前提供方不支持识图（如规则版），前端提示配置 AI_API_KEY */
+  available: boolean;
+  items: HomeworkGradeItem[];
+  summary: string;
+}
+
+export interface OpsContentInput {
+  /** 选题维度 */
+  grade: string;        // 如：初二
+  region: string;       // 如：杭州
+  subject: string;      // 如：数学
+  /** 运营粘贴的素材：新闻文字、链接内容、学员进步数据等 */
+  material?: string;
+  /** 今日日期（ISO），用于 LLM 感知季节/学期节点 */
+  today?: string;
+}
+
+export interface OpsPostDraft {
+  platform: string;     // moments / official / rednote
+  title: string;
+  text: string;
+}
+
+export interface OpsContentResult {
+  available: boolean;
+  /** 信息摘要（给运营内部看的） */
+  summary: string;
+  /** 三平台发布文案 */
+  posts: OpsPostDraft[];
+}
+
 export interface AiProvider {
   /** 提供方名称，用于日志与排查 */
   readonly name: string;
@@ -52,4 +102,10 @@ export interface AiProvider {
 
   /** 举一反三：生成一道同类变式题 */
   variant(input: VariantInput): Promise<string | null>;
+
+  /** 识图批改：识别作业图片中的题目并逐题判断对错（需多模态模型） */
+  gradeHomework(input: HomeworkGradeInput): Promise<HomeworkGradeResult>;
+
+  /** 运营文案：素材/选题 → 信息摘要 + 三平台发布文案 */
+  opsContent(input: OpsContentInput): Promise<OpsContentResult>;
 }

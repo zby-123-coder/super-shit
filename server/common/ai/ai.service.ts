@@ -3,6 +3,10 @@ import { LlmAiProvider } from './llm-ai.provider';
 import { RuleAiProvider } from './rule-ai.provider';
 import type {
   AiProvider,
+  HomeworkGradeInput,
+  HomeworkGradeResult,
+  OpsContentInput,
+  OpsContentResult,
   ReviewDraftInput,
   VariantInput,
   WeeklyReportInput,
@@ -62,6 +66,20 @@ export class AiService {
     return this.run(
       (p) => p.variant(input),
       (p) => p.variant(input),
+    );
+  }
+
+  gradeHomework(input: HomeworkGradeInput): Promise<HomeworkGradeResult> {
+    return this.run(
+      (p) => p.gradeHomework(input),
+      (p) => p.gradeHomework(input),
+    );
+  }
+
+  opsContent(input: OpsContentInput): Promise<OpsContentResult> {
+    return this.run(
+      (p) => p.opsContent(input),
+      (p) => p.opsContent(input),
     );
   }
 }

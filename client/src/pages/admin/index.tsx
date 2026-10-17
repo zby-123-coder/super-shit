@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { http } from '@client/src/utils/http';
+import { opsApi } from '@client/src/api';
+import type { OpsGenerateResponse } from '@shared/api.interface';
 import { toast } from 'sonner';
 import { Badge } from '@client/src/components/ui/badge';
 import { Button } from '@client/src/components/ui/button';
@@ -12,6 +14,7 @@ import {
   DialogTitle,
 } from '@client/src/components/ui/dialog';
 import { Input } from '@client/src/components/ui/input';
+import { Textarea } from '@client/src/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -43,6 +46,11 @@ const AdminPage = () => {
   const [users, setUsers] = useState<AdminUserDTO[]>([]);
   const [articles, setArticles] = useState<ArticleDTO[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  // 运营工作台
+  const [opsForm, setOpsForm] = useState({ grade: '初二', region: '杭州', subject: '数学', material: '' });
+  const [opsResult, setOpsResult] = useState<OpsGenerateResponse | null>(null);
+  const [opsRunning, setOpsRunning] = useState<boolean>(false);
+  const [opsTips, setOpsTips] = useState<{ topic: string; reason: string }[]>([]);
 
   const [assignOpen, setAssignOpen] = useState<boolean>(false);
   const [assignForm, setAssignForm] = useState<{
@@ -237,6 +245,7 @@ const AdminPage = () => {
           <TabsTrigger value="overview">数据概览</TabsTrigger>
           <TabsTrigger value="users">用户与绑定</TabsTrigger>
           <TabsTrigger value="content">内容管理</TabsTrigger>
+          <TabsTrigger value="ops">运营工作台</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="flex flex-col gap-3">
@@ -375,6 +384,145 @@ const AdminPage = () => {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+        <TabsContent value="ops">
+          <div className="flex flex-col gap-3">
+            <Card>
+              <CardContent className="p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-sm font-medium">今日选题提示</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                      try {
+                        const result = await opsApi.dailyTips();
+                        setOpsTips(result.tips);
+                      } catch (error) {
+                        toast.error('获取选题提示失败');
+                      }
+                    }}
+                  >
+                    获取提示
+                  </Button>
+                </div>
+                {opsTips.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    基于学期节点给出选题建议（招生季/考试季/升学季），点击「获取提示」。
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {opsTips.map((tip) => (
+                      <div key={tip.topic} className="rounded-lg border p-3">
+                        <p className="text-sm font-medium">{tip.topic}</p>
+                        <p className="text-xs text-muted-foreground">{tip.reason}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="flex flex-col gap-3 p-4">
+                <p className="text-sm font-medium">文案生成（选题 + 素材 → 摘要 + 三平台文案）</p>
+                <div className="flex flex-wrap gap-2">
+                  <Input
+                    className="w-24"
+                    value={opsForm.grade}
+                    onChange={(event) => setOpsForm((prev) => ({ ...prev, grade: event.target.value }))}
+                    placeholder="年级"
+                    aria-label="年级"
+                  />
+                  <Input
+                    className="w-28"
+                    value={opsForm.region}
+                    onChange={(event) => setOpsForm((prev) => ({ ...prev, region: event.target.value }))}
+                    placeholder="地域"
+                    aria-label="地域"
+                  />
+                  <Input
+                    className="w-24"
+                    value={opsForm.subject}
+                    onChange={(event) => setOpsForm((prev) => ({ ...prev, subject: event.target.value }))}
+                    placeholder="学科"
+                    aria-label="学科"
+                  />
+                </div>
+                <Textarea
+                  value={opsForm.material}
+                  onChange={(event) => setOpsForm((prev) => ({ ...prev, material: event.target.value }))}
+                  placeholder="粘贴素材：新闻片段 / 政策 / 学员进步数据（可留空，AI 自选选题）"
+                  aria-label="运营素材"
+                />
+                <div className="flex gap-2">
+                  <Button
+                    disabled={opsRunning}
+                    onClick={async () => {
+                      setOpsRunning(true);
+                      try {
+                        const result = await opsApi.generate({ ...opsForm, saveDraft: true });
+                        setOpsResult(result);
+                        toast.success(result.draftId ? '已生成并保存草稿' : '已生成');
+                      } catch (error) {
+                        toast.error('生成失败，请重试');
+                      } finally {
+                        setOpsRunning(false);
+                      }
+                    }}
+                  >
+                    {opsRunning ? '生成中…' : '生成并存草稿'}
+                  </Button>
+                </div>
+                {opsResult ? (
+                  <div className="flex flex-col gap-3">
+                    <div className="rounded-lg bg-muted p-3 text-sm">
+                      <p className="mb-1 font-medium">信息摘要</p>
+                      <p className="text-muted-foreground">{opsResult.summary}</p>
+                    </div>
+                    {opsResult.posts.map((post) => (
+                      <div key={post.platform} className="rounded-lg border p-3">
+                        <div className="mb-1 flex items-center justify-between">
+                          <Badge variant="secondary">
+                            {post.platform === 'moments'
+                              ? '朋友圈'
+                              : post.platform === 'official'
+                                ? '公众号'
+                                : post.platform === 'rednote'
+                                  ? '小红书'
+                                  : post.platform}
+                          </Badge>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={async () => {
+                              try {
+                                await navigator.clipboard.writeText(post.text);
+                                toast.success('已复制');
+                              } catch (error) {
+                                toast.error('复制失败');
+                              }
+                            }}
+                          >
+                            复制
+                          </Button>
+                        </div>
+                        <p className="text-sm font-medium">{post.title}</p>
+                        <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
+                          {post.text}
+                        </p>
+                      </div>
+                    ))}
+                    {opsResult.draftId ? (
+                      <p className="text-xs text-muted-foreground">
+                        已存为内容中心草稿，可在「内容管理」编辑后发布。
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
 

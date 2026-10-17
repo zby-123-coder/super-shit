@@ -33,6 +33,8 @@ Page({
     // 批阅弹窗
     reviewVisible: false,
     reviewTask: null,
+    grading: false,
+    gradeResult: { items: [], summary: '', available: true },
     reviewComment: '',
     presets: PRESET_COMMENTS,
     // 布置弹窗
@@ -131,7 +133,7 @@ Page({
   openReview(e) {
     const id = e.currentTarget.dataset.id;
     const item = (this.data.tasks?.items || []).find((t) => t.id === id);
-    this.setData({ reviewVisible: true, reviewTask: item, reviewComment: '' });
+    this.setData({ reviewVisible: true, reviewTask: item, reviewComment: '', gradeResult: { items: [], summary: '', available: true } });
   },
   closeReview() {
     this.setData({ reviewVisible: false });
@@ -142,6 +144,25 @@ Page({
   onReviewInput(e) {
     this.setData({ reviewComment: e.detail.value });
   },
+  async gradeHomework() {
+    const task = this.data.reviewTask;
+    if (!task) return;
+    this.setData({ grading: true });
+    try {
+      const res = await api.gradeHomework(task.id);
+      this.setData({
+        gradeResult: res || { items: [], summary: '', available: false },
+      });
+      if (res && !res.available) {
+        wx.showToast({ title: '未配置 AI_KEY，识图不可用', icon: 'none' });
+      }
+    } catch (err) {
+      wx.showToast({ title: '识图批改失败，请人工批改', icon: 'none' });
+    } finally {
+      this.setData({ grading: false });
+    }
+  },
+
   async genDraft() {
     const task = this.data.reviewTask;
     if (!task) return;
@@ -250,19 +271,29 @@ Page({
     }
   },
   async variant(e) {
-    const { title, subject } = e.currentTarget.dataset;
+    const { title, subject, kp } = e.currentTarget.dataset;
     try {
-      const res = await require('../../utils/request.js').api.aiVariant({
+      // 题库优先（同学科同知识点），不足时 AI 生成补齐并入库
+      const list = await api.qbRecommend({
         subject: subject || '数学',
-        title,
+        knowledgePoint: kp || subject || '数学',
+        count: 3,
       });
-      if (!res.variant) {
-        wx.showToast({ title: '该题不适合自动变式', icon: 'none' });
+      if (!list || !list.length) {
+        const res = await api.aiVariant({ subject: subject || '数学', title });
+        if (!res.variant) {
+          wx.showToast({ title: '暂无同类题，可配置 AI 或录题', icon: 'none' });
+          return;
+        }
+        wx.showModal({ title: '变式练习', content: res.variant, showCancel: false });
         return;
       }
-      wx.showModal({ title: '变式练习', content: res.variant, showCancel: false });
+      const text = list
+        .map((q, i) => `${i + 1}. ${q.title}${q.source === 'ai' ? '（AI生成）' : ''}`)
+        .join('\n');
+      wx.showModal({ title: '举一反三 · 同类题', content: text, showCancel: false });
     } catch (err) {
-      wx.showToast({ title: '生成失败', icon: 'none' });
+      wx.showToast({ title: '推荐失败', icon: 'none' });
     }
   },
 });

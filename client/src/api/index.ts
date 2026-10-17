@@ -20,6 +20,11 @@ import type {
   CreateCourseRequest,
   CreateTaskRequest,
   GrantLessonRequest,
+  HomeworkGradeResult,
+  OpsGenerateRequest,
+  OpsGenerateResponse,
+  QuestionBankItem,
+  RecommendQuestionsRequest,
   LessonSummaryResponse,
   MessageListResponse,
   ProgressDTO,
@@ -227,6 +232,32 @@ export const uploadApi = {
   },
 };
 
+export const opsApi = {
+  dailyTips: (): Promise<{ date: string; tips: { topic: string; reason: string }[] }> =>
+    request({ url: '/api/ops/daily-tips', method: 'GET' }),
+  drafts: (): Promise<{ id: string; title: string; summary: string }[]> =>
+    request({ url: '/api/ops/drafts', method: 'GET' }),
+  generate: (data: OpsGenerateRequest): Promise<OpsGenerateResponse> =>
+    request({ url: '/api/ops/generate', method: 'POST', data }),
+};
+
+export const questionBankApi = {
+  list: (params?: { subject?: string; knowledgePoint?: string }): Promise<QuestionBankItem[]> =>
+    request({ url: '/api/question-bank', method: 'GET', params }),
+  recommend: (data: RecommendQuestionsRequest): Promise<QuestionBankItem[]> =>
+    request({ url: '/api/question-bank/recommend', method: 'POST', data }),
+  create: (data: {
+    subject: string;
+    chapter?: string;
+    knowledgePoint?: string;
+    title: string;
+    answer?: string;
+    analysis?: string;
+    difficulty?: 'easy' | 'medium' | 'hard';
+  }): Promise<QuestionBankItem> =>
+    request({ url: '/api/question-bank', method: 'POST', data }),
+};
+
 export const aiApi = {
   status: (): Promise<{ provider: string }> =>
     request({ url: '/api/ai/status', method: 'GET' }),
@@ -242,6 +273,8 @@ export const aiApi = {
     knowledgePoint?: string;
   }): Promise<{ variant: string | null }> =>
     request({ url: '/api/ai/variant', method: 'POST', data }),
+  gradeHomework: (taskId: string): Promise<HomeworkGradeResult> =>
+    request({ url: `/api/ai/grade-homework/${taskId}`, method: 'POST' }),
 };
 
 export const demoApi = {

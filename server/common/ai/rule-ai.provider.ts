@@ -1,5 +1,9 @@
 import type {
   AiProvider,
+  HomeworkGradeInput,
+  HomeworkGradeResult,
+  OpsContentInput,
+  OpsContentResult,
   ReviewDraftInput,
   VariantInput,
   WeeklyReportInput,
@@ -62,6 +66,52 @@ export class RuleAiProvider implements AiProvider {
       parts.push(`已完成「${taskTitle}」`);
     }
     return `${parts.join('；')}。`;
+  }
+
+  async opsContent(input: OpsContentInput): Promise<OpsContentResult> {
+    const topic = `${input.grade}${input.subject}`;
+    const material = (input.material ?? '').trim();
+    if (!material) {
+      // 无素材：给出选题提示（规则版）
+      return {
+        available: true,
+        summary: `今日选题建议：${input.region}${topic}阶段常见薄弱点与提分案例。可粘贴一条新闻/学员进步数据让 AI 生成完整文案。`,
+        posts: [
+          {
+            platform: 'moments',
+            title: `${topic}学习建议`,
+            text: `${input.region}的${topic}家长注意：阶段测评后及时查漏补缺，比盲目刷题更有效。需要学情诊断的家长可以私聊我。`,
+          },
+        ],
+      };
+    }
+    // 有素材：截取式摘要 + 模板文案
+    const digest = material.length > 120 ? `${material.slice(0, 120)}…` : material;
+    return {
+      available: true,
+      summary: `素材摘要：${digest}`,
+      posts: [
+        {
+          platform: 'moments',
+          title: `${topic}重要信息`,
+          text: `${input.region}${topic}家长关注：${digest} 看懂这一条，少走半年弯路。详情私聊。`,
+        },
+        {
+          platform: 'official',
+          title: `${input.region}${topic}：家长必须知道的变化`,
+          text: `正文引导：${digest}\n\n本文为${input.region}${topic}家长解读相关政策与学习建议，文末可加学情诊断入口。`,
+        },
+      ],
+    };
+  }
+
+  async gradeHomework(_input: HomeworkGradeInput): Promise<HomeworkGradeResult> {
+    // 规则版无识图能力：明确告知前端配置 AI_API_KEY 后启用
+    return {
+      available: false,
+      items: [],
+      summary: '当前为规则版 AI（未配置 AI_API_KEY），暂不支持识图批改；配置后即可自动识别作业图片。',
+    };
   }
 
   async variant(input: VariantInput): Promise<string | null> {

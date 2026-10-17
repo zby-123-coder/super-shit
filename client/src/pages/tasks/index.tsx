@@ -20,7 +20,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@client/src/components
 import { aiApi, taskApi, uploadApi } from '@client/src/api';
 import { PRESET_COMMENTS } from '@client/src/utils/review-draft';
 import { useAccount } from '@client/src/hooks/useAccount';
-import type { TaskDTO, TaskListResponse } from '@shared/api.interface';
+import type {
+  HomeworkGradeResult,
+  TaskDTO,
+  TaskListResponse,
+} from '@shared/api.interface';
 
 const STATUS_TEXT: Record<TaskDTO['status'], string> = {
   open: '待完成',
@@ -39,6 +43,8 @@ const TasksPage = () => {
   const [duration, setDuration] = useState<string>('30');
   const [reviewTask, setReviewTask] = useState<TaskDTO | null>(null);
   const [reviewComment, setReviewComment] = useState<string>('');
+  const [gradeResult, setGradeResult] = useState<HomeworkGradeResult | null>(null);
+  const [grading, setGrading] = useState<boolean>(false);
   const [checkinImages, setCheckinImages] = useState<string[]>([]);
   const [uploading, setUploading] = useState<boolean>(false);
   const [createOpen, setCreateOpen] = useState<boolean>(false);
@@ -315,7 +321,10 @@ const TasksPage = () => {
       <Dialog
         open={!!reviewTask}
         onOpenChange={(open: boolean) => {
-          if (!open) setReviewTask(null);
+          if (!open) {
+            setReviewTask(null);
+            setGradeResult(null);
+          }
         }}
       >
         <DialogContent>
@@ -325,6 +334,57 @@ const TasksPage = () => {
               {reviewTask?.studentName} · {reviewTask?.title}
             </DialogDescription>
           </DialogHeader>
+          {reviewTask?.checkin?.imageUrls && reviewTask.checkin.imageUrls.length > 0 ? (
+            <div className="flex flex-col gap-2 rounded-lg border p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">
+                  AI 识图批改（{reviewTask.checkin.imageUrls.length} 张作业图）
+                </span>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={grading}
+                  onClick={async () => {
+                    if (!reviewTask) return;
+                    setGrading(true);
+                    try {
+                      const result = await aiApi.gradeHomework(reviewTask.id);
+                      setGradeResult(result);
+                      if (!result.available) {
+                        toast.info('未配置 AI_API_KEY，识图批改不可用');
+                      }
+                    } catch (error) {
+                      toast.error('识图批改失败，请人工批改');
+                    } finally {
+                      setGrading(false);
+                    }
+                  }}
+                >
+                  {grading ? '识别中…' : '开始批改'}
+                </Button>
+              </div>
+              {gradeResult ? (
+                <div className="flex flex-col gap-2 text-sm">
+                  {gradeResult.items.length > 0 ? (
+                    gradeResult.items.map((item, index) => (
+                      <div key={index} className="flex items-start gap-2">
+                        <span className={item.isCorrect ? 'text-green-600' : 'text-red-600'}>
+                          {item.isCorrect ? '✓' : '✗'}
+                        </span>
+                        <span>
+                          第 {item.questionNo} 题
+                          {item.errorType ? `（${item.errorType}）` : ''}：{item.comment}
+                        </span>
+                      </div>
+                    ))
+                  ) : null}
+                  {gradeResult.summary ? (
+                    <p className="text-muted-foreground">{gradeResult.summary}</p>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           <div className="flex flex-col gap-2">
             <div className="flex flex-wrap gap-1">
               {PRESET_COMMENTS.map((preset) => (

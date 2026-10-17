@@ -32,6 +32,7 @@ DROP INDEX IF EXISTS public.uk_app_profile_invite;
 DROP INDEX IF EXISTS public.idx_wq_student;
 DROP INDEX IF EXISTS public.idx_task_teacher;
 DROP INDEX IF EXISTS public.idx_task_student;
+DROP INDEX IF EXISTS public.idx_qb_kp;
 DROP INDEX IF EXISTS public.idx_profile_family;
 DROP INDEX IF EXISTS public.idx_message_user;
 DROP INDEX IF EXISTS public.idx_ledger_student;
@@ -46,6 +47,7 @@ ALTER TABLE IF EXISTS ONLY public.teaching_link DROP CONSTRAINT IF EXISTS teachi
 ALTER TABLE IF EXISTS ONLY public.task_checkin DROP CONSTRAINT IF EXISTS task_checkin_pkey;
 ALTER TABLE IF EXISTS ONLY public.study_task DROP CONSTRAINT IF EXISTS study_task_pkey;
 ALTER TABLE IF EXISTS ONLY public.study_progress DROP CONSTRAINT IF EXISTS study_progress_pkey;
+ALTER TABLE IF EXISTS ONLY public.question_bank DROP CONSTRAINT IF EXISTS question_bank_pkey;
 ALTER TABLE IF EXISTS ONLY public.notice_message DROP CONSTRAINT IF EXISTS notice_message_pkey;
 ALTER TABLE IF EXISTS ONLY public.lesson_ledger DROP CONSTRAINT IF EXISTS lesson_ledger_pkey;
 ALTER TABLE IF EXISTS ONLY public.lesson_account DROP CONSTRAINT IF EXISTS lesson_account_pkey;
@@ -62,6 +64,7 @@ DROP TABLE IF EXISTS public.teaching_link;
 DROP TABLE IF EXISTS public.task_checkin;
 DROP TABLE IF EXISTS public.study_task;
 DROP TABLE IF EXISTS public.study_progress;
+DROP TABLE IF EXISTS public.question_bank;
 DROP TABLE IF EXISTS public.notice_message;
 DROP TABLE IF EXISTS public.lesson_ledger;
 DROP TABLE IF EXISTS public.lesson_account;
@@ -288,6 +291,28 @@ CREATE TABLE public.notice_message (
 
 
 --
+-- Name: question_bank; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.question_bank (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    subject character varying(64) NOT NULL,
+    chapter character varying(255),
+    knowledge_point character varying(255),
+    title text NOT NULL,
+    answer text,
+    analysis text,
+    difficulty character varying(16) DEFAULT 'medium'::character varying NOT NULL,
+    source character varying(32) DEFAULT 'manual'::character varying NOT NULL,
+    use_count integer DEFAULT 0 NOT NULL,
+    _created_at timestamp with time zone DEFAULT now() NOT NULL,
+    _created_by character varying(64),
+    _updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    _updated_by character varying(64)
+);
+
+
+--
 -- Name: study_progress; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -472,6 +497,14 @@ ALTER TABLE ONLY public.notice_message
 
 
 --
+-- Name: question_bank question_bank_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.question_bank
+    ADD CONSTRAINT question_bank_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: study_progress study_progress_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -572,6 +605,13 @@ CREATE INDEX idx_message_user ON public.notice_message USING btree (user_id, _cr
 --
 
 CREATE INDEX idx_profile_family ON public.app_profile USING btree (family_id);
+
+
+--
+-- Name: idx_qb_kp; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_qb_kp ON public.question_bank USING btree (subject, knowledge_point);
 
 
 --
@@ -683,5 +723,5 @@ CREATE UNIQUE INDEX uk_teaching_pair ON public.teaching_link USING btree (teache
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 1Uulm8k82YS4ZkFdp6bshylJagWIyF6jOWATieGbumqYPJ7bhvHE031L6enWDgF
+\unrestrict xAC3E51xftn1ox8hjLYlwZo9A7UUuaJXFO3fd8SuQyqqwIUe0N74abBHkFbJ5Ob
 

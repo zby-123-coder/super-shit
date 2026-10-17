@@ -24,7 +24,8 @@ export class AuthMiddleware implements NestMiddleware {
     ].some((path) => raw.includes(path));
     const header = req.headers.authorization ?? '';
     const token = header.startsWith('Bearer ') ? header.slice(7) : '';
-    const userId = token ? await this.authService.resolveToken(token) : null;
+    const session = token ? await this.authService.resolveToken(token) : null;
+    const userId = session?.userId ?? null;
 
     if (isPublic) {
       next();
@@ -41,6 +42,7 @@ export class AuthMiddleware implements NestMiddleware {
     }
     const context = (req.userContext ?? {}) as Record<string, unknown>;
     context.userId = userId;
+    context.role = session?.role;
     // 平台 UserContextMiddleware 会整体替换 req.userContext，这里锁定属性，
     // 让后续赋值只合并字段、不改动我们的 userId。
     Object.defineProperty(req, 'userContext', {

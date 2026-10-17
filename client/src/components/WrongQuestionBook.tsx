@@ -12,10 +12,10 @@ import {
 import { Input } from '@client/src/components/ui/input';
 import { Textarea } from '@client/src/components/ui/textarea';
 import { EmptyBlock, LoadingBlock } from '@client/src/components/PageShell';
-import { wrongQuestionApi } from '@client/src/api';
+import { questionBankApi, wrongQuestionApi } from '@client/src/api';
 import { useAccount } from '@client/src/hooks/useAccount';
 import { generateVariant } from '@client/src/utils/variant';
-import type { WrongQuestionDTO } from '@shared/api.interface';
+import type { QuestionBankItem, WrongQuestionDTO } from '@shared/api.interface';
 
 /** 错题本：学生录入与订正，家长/老师只读，支持数字变式 */
 const WrongQuestionBook = () => {
@@ -41,6 +41,8 @@ const WrongQuestionBook = () => {
   const [variant, setVariant] = useState<{ id: string; text: string } | null>(
     null,
   );
+  const [recommends, setRecommends] = useState<QuestionBankItem[] | null>(null);
+  const [recommending, setRecommending] = useState<boolean>(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -119,6 +121,40 @@ const WrongQuestionBook = () => {
             <Button
               size="sm"
               variant="outline"
+              disabled={recommending}
+              onClick={async () => {
+                setRecommending(true);
+                try {
+                  // 题库优先（同学科同知识点），不足时 AI 生成补齐并入库
+                  const list = await questionBankApi.recommend({
+                    subject: item.subject,
+                    knowledgePoint: item.knowledgePoint || item.chapter || item.subject,
+                    chapter: item.chapter,
+                    count: 3,
+                  });
+                  if (list.length === 0) {
+                    // 题库与 AI 均无结果时，退回本地规则版
+                    const text = generateVariant(item.title);
+                    if (text) {
+                      setVariant({ id: item.id, text });
+                    } else {
+                      toast('该知识点暂无题目，可在后台录题或配置 AI_API_KEY');
+                    }
+                    return;
+                  }
+                  setRecommends(list);
+                } catch (error) {
+                  toast.error('推荐失败，请重试');
+                } finally {
+                  setRecommending(false);
+                }
+              }}
+            >
+              {recommending ? '推荐中…' : '举一反三'}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
               onClick={() => {
                 const text = generateVariant(item.title);
                 if (!text) {
@@ -128,7 +164,7 @@ const WrongQuestionBook = () => {
                 setVariant({ id: item.id, text });
               }}
             >
-              生成变式题
+              快速变式
             </Button>
             {isStudent && item.status === 'open' ? (
               <Button
@@ -200,6 +236,37 @@ const WrongQuestionBook = () => {
           <DialogFooter>
             <Button onClick={submit}>保存</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!recommends}
+        onOpenChange={(openFlag: boolean) => {
+          if (!openFlag) setRecommends(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>举一反三 · 同类题推荐</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-3">
+            {recommends?.map((question) => (
+              <div key={question.id} className="rounded-lg border p-3 text-sm">
+                <p>{question.title}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {question.source === 'ai' ? 'AI 生成（已入库）' : '题库精选'} ·{' '}
+                  {question.difficulty === 'easy'
+                    ? '基础'
+                    : question.difficulty === 'hard'
+                      ? '挑战'
+                      : '中等'}
+                </p>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            来源：优先匹配题库（同学科同知识点），题库不足时 AI 生成并自动入库，越用越准。
+          </p>
         </DialogContent>
       </Dialog>
 

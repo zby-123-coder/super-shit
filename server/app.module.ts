@@ -14,6 +14,8 @@ import { ProgressModule } from './modules/progress/progress.module';
 import { ContentModule } from './modules/content/content.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { AiModule } from './modules/ai/ai.module';
+import { QuestionBankModule } from './modules/question-bank/question-bank.module';
+import { OpsModule } from './modules/ops/ops.module';
 import { UploadModule } from './modules/upload/upload.module';
 import { DemoModule } from './modules/demo/demo.module';
 import { ReportModule } from './modules/report/report.module';
@@ -34,6 +36,8 @@ import { WrongQuestionModule } from './modules/wrong-question/wrong-question.mod
     ContentModule,
     AdminModule,
     AiModule,
+    QuestionBankModule,
+    OpsModule,
     UploadModule,
     DemoModule,
     ReportModule,
