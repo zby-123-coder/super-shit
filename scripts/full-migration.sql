@@ -30,6 +30,7 @@ DROP INDEX IF EXISTS public.uk_auth_credential_login;
 DROP INDEX IF EXISTS public.uk_app_profile_user;
 DROP INDEX IF EXISTS public.uk_app_profile_invite;
 DROP INDEX IF EXISTS public.idx_wq_student;
+DROP INDEX IF EXISTS public.idx_wq_review;
 DROP INDEX IF EXISTS public.idx_task_teacher;
 DROP INDEX IF EXISTS public.idx_task_student;
 DROP INDEX IF EXISTS public.idx_qb_kp;
@@ -404,7 +405,12 @@ CREATE TABLE public.wrong_question (
     _created_at timestamp with time zone DEFAULT now() NOT NULL,
     _created_by character varying(64),
     _updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    _updated_by character varying(64)
+    _updated_by character varying(64),
+    review_stage integer DEFAULT 0 NOT NULL,
+    review_count integer DEFAULT 0 NOT NULL,
+    next_review_at timestamp with time zone,
+    last_review_at timestamp with time zone,
+    review_task_id uuid
 );
 
 
@@ -629,6 +635,13 @@ CREATE INDEX idx_task_teacher ON public.study_task USING btree (teacher_user_id,
 
 
 --
+-- Name: idx_wq_review; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_wq_review ON public.wrong_question USING btree (next_review_at) WHERE (next_review_at IS NOT NULL);
+
+
+--
 -- Name: idx_wq_student; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -723,5 +736,5 @@ CREATE UNIQUE INDEX uk_teaching_pair ON public.teaching_link USING btree (teache
 -- PostgreSQL database dump complete
 --
 
-\unrestrict xAC3E51xftn1ox8hjLYlwZo9A7UUuaJXFO3fd8SuQyqqwIUe0N74abBHkFbJ5Ob
+\unrestrict a3YAZcc7IthZuS8fGGT0sbquYLAcJ5rKcSnjzfn1Fx4bdpqyYJH5V9ahQHm0Cg9
 

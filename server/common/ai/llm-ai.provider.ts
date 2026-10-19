@@ -1,6 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type {
   AiProvider,
+  DiagnoseInput,
+  DiagnoseResult,
+  ExplainInput,
+  ExplainResult,
   HomeworkGradeInput,
   HomeworkGradeResult,
   OpsContentInput,
@@ -169,6 +173,81 @@ export class LlmAiProvider implements AiProvider {
       };
     } catch {
       return { available: true, summary: text.slice(0, 300), posts: [] };
+    }
+  }
+
+  async diagnose(input: DiagnoseInput): Promise<DiagnoseResult> {
+    const text = await this.chat(
+      '你是资深教学诊断专家。基于四维评分、错因分布与章节进度，输出学情诊断：' +
+        '一段总结、2-4 条优势、2-4 条短板、3-5 条可执行处方（每条含 action 与 reason）。' +
+        '处方必须具体到动作（如"本周完成3道同知识点题"），禁止空话。严格输出 JSON：' +
+        '{"summary":"...","strengths":["..."],"weaknesses":["..."],' +
+        '"prescriptions":[{"action":"...","reason":"..."}]}',
+      `学生：${input.studentName}，周期：近 ${input.days} 天\n` +
+        `四维评分：${JSON.stringify(input.dimensions)}\n` +
+        `错因分布：${JSON.stringify(input.topReasons)}\n` +
+        `章节进度：${JSON.stringify(input.progress)}`,
+    );
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}');
+    if (start < 0 || end <= start) {
+      return {
+        summary: text.slice(0, 200),
+        strengths: [],
+        weaknesses: [],
+        prescriptions: [],
+      };
+    }
+    try {
+      const parsed = JSON.parse(text.slice(start, end + 1)) as DiagnoseResult;
+      return {
+        summary: String(parsed.summary ?? ''),
+        strengths: Array.isArray(parsed.strengths) ? parsed.strengths.map(String) : [],
+        weaknesses: Array.isArray(parsed.weaknesses) ? parsed.weaknesses.map(String) : [],
+        prescriptions: Array.isArray(parsed.prescriptions)
+          ? parsed.prescriptions.map((p) => ({ action: String(p.action ?? ''), reason: String(p.reason ?? '') }))
+          : [],
+      };
+    } catch {
+      return { summary: text.slice(0, 200), strengths: [], weaknesses: [], prescriptions: [] };
+    }
+  }
+
+  /**
+   * 引导式讲题：四段结构（读题→提示→分步讲解），
+   * 护栏：提示段绝不透露最终答案，讲解段才给完整推导。
+   */
+  async explainQuestion(input: ExplainInput): Promise<ExplainResult> {
+    const text = await this.chat(
+      '你是善用引导式教学的老师。针对学生的错题，按四段输出：' +
+        'read（审题要点：这题在问什么、关键条件是什么）；' +
+        'hint（思路提示：指出切入方向与易错点，【绝对不能透露最终答案】）；' +
+        'explain（分步讲解：完整推导过程，可以给出最终答案）。' +
+        '语气鼓励、步骤清晰。严格输出 JSON：' +
+        '{"steps":[{"phase":"read","text":"..."},{"phase":"hint","text":"..."},' +
+        '{"phase":"explain","text":"..."}],"similarTip":"...","encouragement":"..."}',
+      `科目：${input.subject}\n考点：${input.knowledgePoint ?? '未指定'}\n` +
+        `错题：${input.title}\n错因：${input.wrongReason ?? '未标注'}\n` +
+        `学生作答：${input.studentAnswer ?? '未提供'}`,
+    );
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}');
+    if (start < 0 || end <= start) {
+      return { available: true, steps: [], similarTip: '', encouragement: text.slice(0, 100) };
+    }
+    try {
+      const parsed = JSON.parse(text.slice(start, end + 1)) as ExplainResult;
+      const steps = (parsed.steps ?? []).filter((step) =>
+        ['read', 'hint', 'explain'].includes(step.phase),
+      );
+      return {
+        available: true,
+        steps: steps.map((step) => ({ phase: step.phase, text: String(step.text ?? '') })),
+        similarTip: String(parsed.similarTip ?? ''),
+        encouragement: String(parsed.encouragement ?? ''),
+      };
+    } catch {
+      return { available: true, steps: [], similarTip: '', encouragement: text.slice(0, 100) };
     }
   }
 

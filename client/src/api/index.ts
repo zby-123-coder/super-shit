@@ -13,6 +13,7 @@ import type {
   AssignRelationRequest,
   CheckinDTO,
   CreateCheckinRequest,
+  Diagnosis,
   CreateChildRequest,
   FamilyDTO,
   CourseDTO,
@@ -21,6 +22,7 @@ import type {
   CreateTaskRequest,
   GrantLessonRequest,
   HomeworkGradeResult,
+  ExplainResult,
   OpsGenerateRequest,
   OpsGenerateResponse,
   QuestionBankItem,
@@ -210,11 +212,22 @@ export const wrongQuestionApi = {
     request({ url: '/api/wrong-question', method: 'POST', data }),
   markCorrected: (id: string): Promise<{ success: boolean }> =>
     request({ url: `/api/wrong-question/${id}/corrected`, method: 'PATCH' }),
+  reviewDone: (id: string): Promise<{ success: boolean }> =>
+    request({ url: `/api/wrong-question/${id}/review-done`, method: 'POST' }),
+  reviewSkip: (id: string): Promise<{ success: boolean }> =>
+    request({ url: `/api/wrong-question/${id}/review-skip`, method: 'POST' }),
+  reviewPlan: (studentUserId?: string): Promise<WrongQuestionDTO[]> =>
+    request({ url: '/api/wrong-question/review-plan', method: 'GET', params: { studentUserId } }),
   remove: (id: string): Promise<{ success: boolean }> =>
     request({ url: `/api/wrong-question/${id}`, method: 'DELETE' }),
 };
 
 export const reportApi = {
+  diagnosis: (params?: {
+    studentUserId?: string;
+    days?: number;
+  }): Promise<Diagnosis> =>
+    request({ url: '/api/report/diagnosis', method: 'GET', params }),
   weekly: (studentUserId?: string): Promise<WeeklyReport> =>
     request({
       url: '/api/report/weekly',
@@ -275,6 +288,14 @@ export const aiApi = {
     request({ url: '/api/ai/variant', method: 'POST', data }),
   gradeHomework: (taskId: string): Promise<HomeworkGradeResult> =>
     request({ url: `/api/ai/grade-homework/${taskId}`, method: 'POST' }),
+  explain: (data: {
+    subject: string;
+    title: string;
+    knowledgePoint?: string;
+    wrongReason?: string;
+    studentAnswer?: string;
+  }): Promise<ExplainResult> =>
+    request({ url: '/api/ai/explain', method: 'POST', data }),
 };
 
 export const demoApi = {

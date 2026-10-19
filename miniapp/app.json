@@ -6,6 +6,7 @@
     "pages/lessons/index",
     "pages/tasks/index",
     "pages/admin/index",
+    "pages/progress/index",
     "pages/me/index"
   ],
   "window": {

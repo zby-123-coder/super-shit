@@ -1,8 +1,9 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req } from '@nestjs/common';
+import { Body, Controller, Delete, ForbiddenException, Get, Param, Patch, Post, Query, Req } from '@nestjs/common';
 import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 import type { Request } from 'express';
 import type { SaveWrongQuestionRequest, WrongQuestionDTO } from '@shared/api.interface';
 import { WrongQuestionService } from './wrong-question.service';
+import { ReviewReminderService } from './review-reminder.service';
 
 class SaveDto implements SaveWrongQuestionRequest {
   @IsOptional()
@@ -41,7 +42,46 @@ class StatusDto {
 
 @Controller('api/wrong-question')
 export class WrongQuestionController {
-  constructor(private readonly service: WrongQuestionService) {}
+  constructor(
+    private readonly service: WrongQuestionService,
+    private readonly reviewReminder: ReviewReminderService,
+  ) {}
+
+  /** 手动触发复习提醒（仅管理员；日常由定时任务自动执行） */
+  @Post('review-reminder/run')
+  async runReminder(@Req() req: Request) {
+    const { role } = req.userContext;
+    if (role !== 'admin') {
+      throw new ForbiddenException('只有管理员可以手动触发复习提醒');
+    }
+    return this.reviewReminder.runNow();
+  }
+
+  /** 复习计划：已排期未掌握的错题 */
+  @Get('review-plan')
+  async reviewPlan(
+    @Req() req: Request,
+    @Query('studentUserId') studentUserId?: string,
+  ) {
+    const { userId } = req.userContext;
+    return this.service.reviewPlan(userId, studentUserId);
+  }
+
+  /** 完成一轮复习（阶段推进，到顶标记 mastered） */
+  @Post(':id/review-done')
+  async reviewDone(@Req() req: Request, @Param('id') id: string) {
+    const { userId } = req.userContext;
+    await this.service.reviewDone(id, userId);
+    return { success: true };
+  }
+
+  /** 跳过本轮复习（顺延，不推进阶段） */
+  @Post(':id/review-skip')
+  async reviewSkip(@Req() req: Request, @Param('id') id: string) {
+    const { userId } = req.userContext;
+    await this.service.reviewSkip(id, userId);
+    return { success: true };
+  }
 
   @Get()
   async list(

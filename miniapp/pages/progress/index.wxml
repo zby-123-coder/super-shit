@@ -1,0 +1,56 @@
+<view class="page">
+  <picker mode="selector" range="{{dayOptions}}" range-key="label" bindchange="onDaysChange">
+    <view class="card row">
+      <text class="subtitle">学情诊断</text>
+      <text class="muted">{{dayOptions[0].label && ''}}{{days === 7 ? '近7天' : days === 30 ? '近30天' : '近90天'}} ▾</text>
+    </view>
+  </picker>
+
+  <view wx:if="{{loading}}" class="card"><text class="muted">分析中…</text></view>
+
+  <view wx:if="{{diagnosis && !loading}}">
+    <view wx:if="{{!diagnosis.sampleSufficient}}" class="card" style="background:#FFF7E8;border:1rpx solid #F5E3B3">
+      <text style="font-size:24rpx;color:#8A6D1A;line-height:1.6">
+        样本不足（当前 {{diagnosis.sampleSize}} 条记录，至少需要 5 条）：以下结论仅供参考，坚持打卡与错题订正后诊断会更准确。
+      </text>
+    </view>
+
+    <view class="card">
+      <text class="subtitle">{{diagnosis.studentName}} · 近 {{diagnosis.days}} 天</text>
+      <text style="display:block;font-size:26rpx;color:#1F2329;margin-top:12rpx;line-height:1.6">{{diagnosis.summary}}</text>
+    </view>
+
+    <view class="card">
+      <text class="subtitle" style="margin-bottom:16rpx">四维评分</text>
+      <view wx:for="{{diagnosis.dimensions}}" wx:key="key" class="dim-item">
+        <view class="row">
+          <text style="font-size:26rpx;color:#646A73">{{item.label}}</text>
+          <text class="score {{item.score >= 80 ? 'score-good' : item.score < 60 ? 'score-warn' : 'score-mid'}}">{{item.score}}</text>
+        </view>
+        <view class="bar"><view class="bar-i {{item.score >= 80 ? 'good' : item.score < 60 ? 'warn' : 'mid'}}" style="width:{{item.score}}%"></view></view>
+        <text style="font-size:22rpx;color:#8A9099;margin-top:6rpx">{{item.detail}}</text>
+      </view>
+    </view>
+
+    <view wx:if="{{diagnosis.prescriptions.length}}" class="card">
+      <text class="subtitle" style="margin-bottom:16rpx">提升处方</text>
+      <view wx:for="{{diagnosis.prescriptions}}" wx:key="index" class="rx-item">
+        <text style="font-size:26rpx;color:#1F2329;line-height:1.6">{{item.action}}</text>
+        <text style="display:block;font-size:22rpx;color:#8A9099;margin-top:4rpx">{{item.reason}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="card">
+    <text class="subtitle" style="margin-bottom:16rpx">章节进度</text>
+    <view wx:for="{{progress}}" wx:key="id" style="margin-bottom:18rpx">
+      <view class="row">
+        <text style="font-size:26rpx;color:#1F2329">{{item.subject}} · {{item.chapter}}</text>
+        <text class="tag">{{item.percent}}%</text>
+      </view>
+      <view class="bar"><view class="bar-i mid" style="width:{{item.percent}}%"></view></view>
+      <text wx:if="{{item.currentPoint}}" style="font-size:22rpx;color:#8A9099">当前：{{item.currentPoint}}</text>
+    </view>
+    <view wx:if="{{!progress.length}}"><text class="muted">暂无进度记录</text></view>
+  </view>
+</view>

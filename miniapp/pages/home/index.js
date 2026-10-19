@@ -108,6 +108,10 @@ Page({
     });
   },
 
+  goProgress() {
+    wx.navigateTo({ url: '/pages/progress/index' });
+  },
+
   async goReport() {
     try {
       const report = await api.weeklyReport();

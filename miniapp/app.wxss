@@ -258,3 +258,16 @@ page {
 .tag-warn { background: #FEE; color: #D93025; }
 .mask { position: fixed; left: 0; right: 0; top: 0; bottom: 0; background: rgba(0,0,0,.45); z-index: 100; display: flex; align-items: flex-end; }
 .sheet { width: 100%; background: #FFFFFF; border-radius: 28rpx 28rpx 0 0; padding: 32rpx 28rpx 48rpx; box-sizing: border-box; }
+
+/* ===== 进度与诊断页 ===== */
+.dim-item { margin-bottom: 20rpx; }
+.score { font-size: 32rpx; font-weight: 700; }
+.score-good { color: #12934A; }
+.score-warn { color: #D97C06; }
+.score-mid { color: #4F5FE8; }
+.bar { height: 8rpx; background: #F0F2F5; border-radius: 4rpx; overflow: hidden; margin-top: 10rpx; }
+.bar-i { height: 100%; border-radius: 4rpx; }
+.bar-i.good { background: #12934A; }
+.bar-i.warn { background: #D97C06; }
+.bar-i.mid { background: #4F5FE8; }
+.rx-item { background: #F7F8FA; border-radius: 10rpx; padding: 16rpx; margin-bottom: 12rpx; }

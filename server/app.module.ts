@@ -1,4 +1,5 @@
 import { APP_FILTER } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { DatabaseModule } from './database/database.module';
 
@@ -25,6 +26,8 @@ import { WrongQuestionModule } from './modules/wrong-question/wrong-question.mod
   imports: [
     // 全局数据库模块（自持接入，替代平台能力）
     DatabaseModule,
+    // 定时任务（复习提醒等）
+    ScheduleModule.forRoot(),
     // ====== @route-section: business-modules START ======
     // Place all business modules here.Do NOT add fallback modules here.
     AuthModule,

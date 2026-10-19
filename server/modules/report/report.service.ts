@@ -12,9 +12,15 @@ import {
   studyTask,
   taskCheckin,
   teachingLink,
+  wrongQuestion,
 } from '@server/database/schema';
 import { and, desc, eq, gte, lte } from 'drizzle-orm';
-import type { WeeklyReport, WeeklyReportSection } from '@shared/api.interface';
+import type {
+  Diagnosis,
+  DiagnosisDimension,
+  WeeklyReport,
+  WeeklyReportSection,
+} from '@shared/api.interface';
 import { AccountService } from '../account/account.service';
 import { AiService } from '@server/common/ai/ai.service';
 
@@ -267,5 +273,171 @@ export class ReportService {
       ],
       text,
     };
+  }
+
+  /**
+   * 学情诊断（数据飞轮的「洞察」环节）。
+   *
+   * 第一性依据：家长付费买的是"确定性"，老师时间是有限供给。
+   * 散落数据（打卡/批阅/错题/进度）→ 四个可决策维度 → 规则引擎归因 →
+   * AI 层生成处方。规则负责"判得准"，AI 负责"说人话"，两者解耦。
+   *
+   * 冷启动处理：样本量 < 5 时标记 sampleSufficient=false，
+   * 前端提示"样本不足，结论仅供参考"，避免用少量数据讲大故事。
+   */
+  async diagnosis(
+    userId: string,
+    studentUserId?: string,
+    days = 30,
+  ): Promise<Diagnosis> {
+    // 家长未指定孩子时默认看家庭里第一个孩子（与 weekly 同源逻辑）
+    let target = studentUserId || '';
+    if (!target) {
+      const me = await this.accountService.findProfile(userId);
+      if (me?.role === 'parent') {
+        const meData = await this.accountService.getMe(userId);
+        target = meData.children[0]?.userId ?? '';
+      }
+    }
+    if (!target) target = userId;
+    await this.assertCanView(userId, target);
+
+    const student = await this.accountService.findProfile(target);
+    const since = new Date(Date.now() - days * 86400000);
+
+    const [checkins, wrongs, progresses] = await Promise.all([
+      this.db
+        .select()
+        .from(taskCheckin)
+        .where(
+          and(
+            eq(taskCheckin.studentUserId, target),
+            gte(taskCheckin.createdAt, since),
+          ),
+        ),
+      this.db
+        .select()
+        .from(wrongQuestion)
+        .where(
+          and(
+            eq(wrongQuestion.studentUserId, target),
+            gte(wrongQuestion.createdAt, since),
+          ),
+        ),
+      this.db
+        .select()
+        .from(studyProgress)
+        .where(eq(studyProgress.studentUserId, target)),
+    ]);
+
+    // 错因归类 Top5
+    const reasonCount = new Map<string, number>();
+    for (const w of wrongs) {
+      const reason = w.reason?.trim() || '未标注';
+      reasonCount.set(reason, (reasonCount.get(reason) ?? 0) + 1);
+    }
+    const topReasons = [...reasonCount.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([reason, count]) => ({ reason, count }));
+
+    // 四维评分（0-100，可解释的简单模型）
+    const totalMin = checkins.reduce((sum, c) => sum + (c.durationMin ?? 0), 0);
+    const approved = checkins.filter((c) => c.status === 'approved').length;
+    const rejected = checkins.filter((c) => c.status === 'rejected').length;
+    const corrected = wrongs.filter((w) => w.status === 'corrected').length;
+    const sampleSize = checkins.length + wrongs.length;
+
+    const dimensions: DiagnosisDimension[] = [
+      {
+        key: 'engagement',
+        label: '投入度',
+        score: Math.min(
+          100,
+          Math.round((checkins.length / Math.max(1, days / 3)) * 100),
+        ),
+        detail: `${days} 天打卡 ${checkins.length} 次，累计 ${totalMin} 分钟`,
+      },
+      {
+        key: 'quality',
+        label: '完成质量',
+        score: checkins.length
+          ? Math.round((approved / checkins.length) * 100)
+          : 0,
+        detail: `通过 ${approved} 次，退回 ${rejected} 次`,
+      },
+      {
+        key: 'mastery',
+        label: '知识掌握',
+        score: wrongs.length
+          ? Math.round((corrected / wrongs.length) * 100)
+          : 100,
+        detail: `错题 ${wrongs.length} 道，已订正 ${corrected} 道`,
+      },
+      {
+        key: 'consistency',
+        label: '持续性',
+        score: this.consistencyScore(checkins),
+        detail: this.consistencyDetail(checkins, days),
+      },
+    ];
+
+    const aiResult = await this.aiService.diagnose({
+      studentName: student?.name ?? '学生',
+      days,
+      dimensions: dimensions.map((d) => ({
+        label: d.label,
+        score: d.score,
+        detail: d.detail,
+      })),
+      topReasons,
+      progress: progresses.map((p) => ({
+        subject: p.subject,
+        chapter: p.chapter,
+        percent: p.percent,
+      })),
+    });
+
+    return {
+      studentUserId: target,
+      studentName: student?.name ?? '学生',
+      days,
+      generatedAt: new Date().toISOString(),
+      dimensions,
+      topReasons,
+      summary: aiResult.summary,
+      strengths: aiResult.strengths,
+      weaknesses: aiResult.weaknesses,
+      prescriptions: aiResult.prescriptions,
+      sampleSize,
+      sampleSufficient: sampleSize >= 5,
+    };
+  }
+
+  /** 持续性：活跃日 / 跨越天数 */
+  private consistencyScore(checkins: { createdAt: Date }[]): number {
+    if (checkins.length === 0) return 0;
+    const activeDays = new Set(
+      checkins.map((c) => new Date(c.createdAt).toISOString().slice(0, 10)),
+    );
+    const first = new Date(
+      Math.min(...checkins.map((c) => new Date(c.createdAt).getTime())),
+    );
+    const spanDays = Math.max(
+      1,
+      Math.ceil((Date.now() - first.getTime()) / 86400000),
+    );
+    return Math.min(100, Math.round((activeDays.size / spanDays) * 100));
+  }
+
+  private consistencyDetail(
+    checkins: { createdAt: Date }[],
+    days: number,
+  ): string {
+    if (checkins.length === 0) return `${days} 天内无打卡`;
+    const activeDays = new Set(
+      checkins.map((c) => new Date(c.createdAt).toISOString().slice(0, 10)),
+    );
+    return `${days} 天内 ${activeDays.size} 天有学习记录`;
   }
 }

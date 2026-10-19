@@ -23,6 +23,31 @@ class ReviewDraftDto {
   taskTitle!: string;
 }
 
+class ExplainDto {
+  @IsString()
+  @MaxLength(64)
+  subject!: string;
+
+  @IsString()
+  @MaxLength(500)
+  title!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  knowledgePoint?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  wrongReason?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  studentAnswer?: string;
+}
+
 class VariantDto {
   @IsString()
   @MaxLength(64)
@@ -61,6 +86,21 @@ export class AiController {
       taskTitle: dto.taskTitle,
     });
     return { draft };
+  }
+
+  /**
+   * 引导式讲题：读题→提示（不给答案）→分步讲解。
+   * 权限：登录用户可用（自己的错题场景），无敏感数据外泄。
+   */
+  @Post('explain')
+  async explain(@Body() dto: ExplainDto) {
+    return this.aiService.explainQuestion({
+      subject: dto.subject,
+      title: dto.title,
+      knowledgePoint: dto.knowledgePoint,
+      wrongReason: dto.wrongReason,
+      studentAnswer: dto.studentAnswer,
+    });
   }
 
   @Post('variant')

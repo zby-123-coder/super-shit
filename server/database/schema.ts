@@ -459,12 +459,18 @@ export const wrongQuestion = pgTable("wrong_question", {
   reason: varchar("reason", { length: 255 }),
   knowledgePoint: varchar("knowledge_point", { length: 255 }),
   status: varchar("status", { length: 32 }).notNull().default('open'),
+  reviewStage: integer("review_stage").notNull().default(0),
+  reviewCount: integer("review_count").notNull().default(0),
+  nextReviewAt: customTimestamptz("next_review_at", { precision: 3 }),
+  lastReviewAt: customTimestamptz("last_review_at", { precision: 3 }),
+  reviewTaskId: uuid("review_task_id"),
   createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   createdBy: varchar("_created_by", { length: 64 }),
   updatedAt: customTimestamptz("_updated_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedBy: varchar("_updated_by", { length: 64 }),
 }, (table) => [
   index("idx_wq_student").on(table.studentUserId, table.createdAt),
+  index("idx_wq_review").on(table.nextReviewAt),
 ]);
 
 export const questionBank = pgTable("question_bank", {

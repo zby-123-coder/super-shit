@@ -270,6 +270,48 @@ Page({
       wx.showToast({ title: err.message || '操作失败', icon: 'none' });
     }
   },
+  async explainQuestion(e) {
+    const { subject, title, kp, reason } = e.currentTarget.dataset;
+    try {
+      const res = await api.explain({
+        subject: subject || '数学',
+        title,
+        knowledgePoint: kp,
+        wrongReason: reason,
+      });
+      if (!res || !res.available) {
+        const hint = (res.steps || []).find((s) => s.phase === 'hint');
+        wx.showModal({
+          title: '思路提示（AI 讲解未启用）',
+          content: hint ? hint.text : '先独立思考 5 分钟，再对照解析',
+          showCancel: false,
+        });
+        return;
+      }
+      const read = (res.steps || []).find((s) => s.phase === 'read');
+      const hint = (res.steps || []).find((s) => s.phase === 'hint');
+      const explain = (res.steps || []).find((s) => s.phase === 'explain');
+      const content = [
+        read ? `【审题】${read.text}` : '',
+        hint ? `【提示】${hint.text}` : '',
+        '',
+        '先自己想一想，再查看分步讲解',
+      ].filter(Boolean).join('\n');
+      wx.showModal({
+        title: '引导式讲解',
+        content,
+        confirmText: '查看讲解',
+        cancelText: '再想想',
+        success: (r) => {
+          if (!r.confirm || !explain) return;
+          wx.showModal({ title: '分步讲解', content: explain.text, showCancel: false });
+        },
+      });
+    } catch (err) {
+      wx.showToast({ title: '讲解加载失败', icon: 'none' });
+    }
+  },
+
   async variant(e) {
     const { title, subject, kp } = e.currentTarget.dataset;
     try {

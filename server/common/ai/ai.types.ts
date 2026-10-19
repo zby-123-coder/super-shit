@@ -65,6 +65,45 @@ export interface HomeworkGradeResult {
   summary: string;
 }
 
+export interface ExplainInput {
+  subject: string;
+  title: string;
+  knowledgePoint?: string;
+  /** 学生的错因标注（概念不清/计算失误/审题偏差/步骤缺失/未作答） */
+  wrongReason?: string;
+  /** 学生的作答（可选，用于针对性讲解） */
+  studentAnswer?: string;
+}
+
+export interface ExplainStep {
+  phase: 'read' | 'hint' | 'explain';
+  text: string;
+}
+
+export interface ExplainResult {
+  /** false = 当前提供方不支持讲解（如规则版） */
+  available: boolean;
+  steps: ExplainStep[];
+  /** 同类题建议 */
+  similarTip: string;
+  encouragement: string;
+}
+
+export interface DiagnoseInput {
+  studentName: string;
+  days: number;
+  dimensions: { label: string; score: number; detail: string }[];
+  topReasons: { reason: string; count: number }[];
+  progress: { subject: string; chapter: string; percent: number }[];
+}
+
+export interface DiagnoseResult {
+  summary: string;
+  strengths: string[];
+  weaknesses: string[];
+  prescriptions: { action: string; reason: string }[];
+}
+
 export interface OpsContentInput {
   /** 选题维度 */
   grade: string;        // 如：初二
@@ -108,4 +147,10 @@ export interface AiProvider {
 
   /** 运营文案：素材/选题 → 信息摘要 + 三平台发布文案 */
   opsContent(input: OpsContentInput): Promise<OpsContentResult>;
+
+  /** 学情诊断：四维数据 + 错因归类 → 总结/优劣势/处方 */
+  diagnose(input: DiagnoseInput): Promise<DiagnoseResult>;
+
+  /** 引导式讲题：读题→提示→分步讲解（护栏：不直接给最终答案） */
+  explainQuestion(input: ExplainInput): Promise<ExplainResult>;
 }

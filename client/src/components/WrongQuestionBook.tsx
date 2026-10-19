@@ -12,10 +12,14 @@ import {
 import { Input } from '@client/src/components/ui/input';
 import { Textarea } from '@client/src/components/ui/textarea';
 import { EmptyBlock, LoadingBlock } from '@client/src/components/PageShell';
-import { questionBankApi, wrongQuestionApi } from '@client/src/api';
+import { aiApi, questionBankApi, wrongQuestionApi } from '@client/src/api';
 import { useAccount } from '@client/src/hooks/useAccount';
 import { generateVariant } from '@client/src/utils/variant';
-import type { QuestionBankItem, WrongQuestionDTO } from '@shared/api.interface';
+import type {
+  ExplainResult,
+  QuestionBankItem,
+  WrongQuestionDTO,
+} from '@shared/api.interface';
 
 /** 错题本：学生录入与订正，家长/老师只读，支持数字变式 */
 const WrongQuestionBook = () => {
@@ -43,6 +47,10 @@ const WrongQuestionBook = () => {
   );
   const [recommends, setRecommends] = useState<QuestionBankItem[] | null>(null);
   const [recommending, setRecommending] = useState<boolean>(false);
+  // 引导式讲题
+  const [explain, setExplain] = useState<ExplainResult | null>(null);
+  const [explaining, setExplaining] = useState<boolean>(false);
+  const [showDetail, setShowDetail] = useState<boolean>(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -113,9 +121,31 @@ const WrongQuestionBook = () => {
                 {item.knowledgePoint ? ` · 考点：${item.knowledgePoint}` : ''}
               </p>
             </div>
-            <Badge variant={item.status === 'corrected' ? 'secondary' : 'default'}>
-              {item.status === 'corrected' ? '已订正' : '待订正'}
-            </Badge>
+            <div className="flex flex-col items-end gap-1">
+              <Badge
+                variant={
+                  item.status === 'mastered'
+                    ? 'secondary'
+                    : item.status === 'corrected'
+                      ? 'default'
+                      : 'outline'
+                }
+              >
+                {item.status === 'mastered'
+                  ? '已掌握'
+                  : item.status === 'corrected'
+                    ? '复习中'
+                    : '待订正'}
+              </Badge>
+              {item.nextReviewAt ? (
+                <span className="text-xs text-muted-foreground">
+                  第 {item.reviewStage + 1} 轮 ·{' '}
+                  {new Date(item.nextReviewAt) <= new Date()
+                    ? '今天待复习'
+                    : `${new Date(item.nextReviewAt).toLocaleDateString('zh-CN')} 复习`}
+                </span>
+              ) : null}
+            </div>
           </div>
           <div className="mt-2 flex flex-wrap gap-2">
             <Button
@@ -155,6 +185,30 @@ const WrongQuestionBook = () => {
             <Button
               size="sm"
               variant="ghost"
+              disabled={explaining}
+              onClick={async () => {
+                setExplaining(true);
+                setShowDetail(false);
+                try {
+                  const result = await aiApi.explain({
+                    subject: item.subject,
+                    title: item.title,
+                    knowledgePoint: item.knowledgePoint,
+                    wrongReason: item.reason,
+                  });
+                  setExplain(result);
+                } catch (error) {
+                  toast.error('讲解加载失败');
+                } finally {
+                  setExplaining(false);
+                }
+              }}
+            >
+              {explaining ? '加载中…' : '听讲解'}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
               onClick={() => {
                 const text = generateVariant(item.title);
                 if (!text) {
@@ -172,12 +226,38 @@ const WrongQuestionBook = () => {
                 variant="ghost"
                 onClick={async () => {
                   await wrongQuestionApi.markCorrected(item.id);
-                  toast.success('已标记订正');
+                  toast.success('已标记订正，已进入复习排期');
                   await load();
                 }}
               >
                 标记已订正
               </Button>
+            ) : null}
+            {isStudent && item.nextReviewAt ? (
+              <>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={async () => {
+                    await wrongQuestionApi.reviewDone(item.id);
+                    toast.success('本轮复习完成，已排下一轮');
+                    await load();
+                  }}
+                >
+                  完成复习
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={async () => {
+                    await wrongQuestionApi.reviewSkip(item.id);
+                    toast.success('已跳过本轮，稍后提醒');
+                    await load();
+                  }}
+                >
+                  跳过本轮
+                </Button>
+              </>
             ) : null}
           </div>
         </div>
@@ -236,6 +316,62 @@ const WrongQuestionBook = () => {
           <DialogFooter>
             <Button onClick={submit}>保存</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!explain}
+        onOpenChange={(openFlag: boolean) => {
+          if (!openFlag) {
+            setExplain(null);
+            setShowDetail(false);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>引导式讲解</DialogTitle>
+          </DialogHeader>
+          {explain ? (
+            <div className="flex flex-col gap-3">
+              {!explain.available ? (
+                <p className="rounded-lg bg-muted p-3 text-xs text-muted-foreground">
+                  AI 讲解未启用（未配置 AI_API_KEY），以下为通用学习建议。
+                </p>
+              ) : null}
+              {explain.steps.map((step, index) => {
+                // 引导式交互：explain 段默认折叠，先自己想一想
+                if (step.phase === 'explain' && !showDetail) return null;
+                return (
+                  <div key={index} className="rounded-lg border p-3 text-sm">
+                    <p className="mb-1 text-xs font-medium text-muted-foreground">
+                      {step.phase === 'read'
+                        ? '审题要点'
+                        : step.phase === 'hint'
+                          ? '思路提示'
+                          : '分步讲解'}
+                    </p>
+                    <p className="whitespace-pre-wrap">{step.text}</p>
+                  </div>
+                );
+              })}
+              {explain.available && explain.steps.some((s) => s.phase === 'explain') ? (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setShowDetail((prev) => !prev)}
+                >
+                  {showDetail ? '收起讲解，自己再想想' : '查看分步讲解'}
+                </Button>
+              ) : null}
+              {explain.similarTip ? (
+                <p className="text-xs text-muted-foreground">{explain.similarTip}</p>
+              ) : null}
+              {explain.encouragement ? (
+                <p className="text-xs text-primary">{explain.encouragement}</p>
+              ) : null}
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
 

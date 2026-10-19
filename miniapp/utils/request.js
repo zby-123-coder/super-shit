@@ -125,6 +125,8 @@ const api = {
     request({ url: `/api/content/${id}/favorite`, method: 'POST' }),
   weeklyReport: (studentUserId) =>
     request({ url: '/api/report/weekly', params: { studentUserId } }),
+  diagnosis: (studentUserId, days) =>
+    request({ url: '/api/report/diagnosis', params: { studentUserId, days } }),
   messages: () => request({ url: '/api/message' }),
   markAllRead: () => request({ url: '/api/message/read-all', method: 'PATCH' }),
 
@@ -161,6 +163,8 @@ const api = {
     request({ url: '/api/ai/variant', method: 'POST', data: payload }),
   gradeHomework: (taskId) =>
     request({ url: `/api/ai/grade-homework/${taskId}`, method: 'POST' }),
+  explain: (payload) =>
+    request({ url: '/api/ai/explain', method: 'POST', data: payload }),
 
   // question-bank
   qbRecommend: (payload) =>

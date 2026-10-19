@@ -3,6 +3,10 @@ import { LlmAiProvider } from './llm-ai.provider';
 import { RuleAiProvider } from './rule-ai.provider';
 import type {
   AiProvider,
+  DiagnoseInput,
+  DiagnoseResult,
+  ExplainInput,
+  ExplainResult,
   HomeworkGradeInput,
   HomeworkGradeResult,
   OpsContentInput,
@@ -80,6 +84,20 @@ export class AiService {
     return this.run(
       (p) => p.opsContent(input),
       (p) => p.opsContent(input),
+    );
+  }
+
+  diagnose(input: DiagnoseInput): Promise<DiagnoseResult> {
+    return this.run(
+      (p) => p.diagnose(input),
+      (p) => p.diagnose(input),
+    );
+  }
+
+  explainQuestion(input: ExplainInput): Promise<ExplainResult> {
+    return this.run(
+      (p) => p.explainQuestion(input),
+      (p) => p.explainQuestion(input),
     );
   }
 }

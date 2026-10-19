@@ -34,6 +34,9 @@
       <view class="tile" bindtap="go" data-url="tab:/pages/lessons/index">
         <text class="tile-icon">⏱</text>课时账本
       </view>
+      <view class="tile" bindtap="goProgress">
+        <text class="tile-icon">📈</text>学情诊断
+      </view>
       <view class="tile" bindtap="goReport">
         <text class="tile-icon">📋</text>学习周报
       </view>

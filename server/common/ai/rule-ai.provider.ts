@@ -1,5 +1,9 @@
 import type {
   AiProvider,
+  DiagnoseInput,
+  DiagnoseResult,
+  ExplainInput,
+  ExplainResult,
   HomeworkGradeInput,
   HomeworkGradeResult,
   OpsContentInput,
@@ -102,6 +106,84 @@ export class RuleAiProvider implements AiProvider {
           text: `正文引导：${digest}\n\n本文为${input.region}${topic}家长解读相关政策与学习建议，文末可加学情诊断入口。`,
         },
       ],
+    };
+  }
+
+  /**
+   * 规则版诊断：可解释优先——每个结论都直接引用维度分数与错因数据。
+   * 教育测量学口径：低于 60 分判弱、高于 80 分判强，处方与最弱维度挂钩。
+   */
+  async diagnose(input: DiagnoseInput): Promise<DiagnoseResult> {
+    const strengths: string[] = [];
+    const weaknesses: string[] = [];
+    const prescriptions: { action: string; reason: string }[] = [];
+    for (const dim of input.dimensions) {
+      if (dim.score >= 80) {
+        strengths.push(`${dim.label}表现良好（${dim.score} 分）：${dim.detail}`);
+      } else if (dim.score < 60) {
+        weaknesses.push(`${dim.label}偏弱（${dim.score} 分）：${dim.detail}`);
+      }
+    }
+    const weakest = [...input.dimensions].sort((a, b) => a.score - b.score)[0];
+    if (weakest && weakest.score < 80) {
+      const actionMap: Record<string, string> = {
+        投入度: '与老师约定每周最低打卡频次，先从建立节奏感开始',
+        完成质量: '本周挑 2 次打卡重点打磨过程完整性，减少被退回',
+        知识掌握: '集中订正错题本中未解决的题目，优先攻克最高频错因',
+        持续性: '固定每日学习时段，用短时高频替代集中突击',
+      };
+      prescriptions.push({
+        action: actionMap[weakest.label] ?? `针对「${weakest.label}」制定专项提升计划`,
+        reason: `${weakest.label}是当前最弱维度（${weakest.score} 分）`,
+      });
+    }
+    if (input.topReasons.length > 0) {
+      const top = input.topReasons[0];
+      prescriptions.push({
+        action: `针对「${top.reason}」类错题做专项讲解与练习（可由老师在题库检索同类题）`,
+        reason: `${input.days} 天内出现 ${top.count} 次，为最高频错因`,
+      });
+    }
+    if (prescriptions.length === 0) {
+      prescriptions.push({
+        action: '维持当前节奏，可按月做一次学情复盘',
+        reason: '各维度均衡，暂无显著短板',
+      });
+    }
+    return {
+      summary:
+        `${input.studentName}近 ${input.days} 天：` +
+        input.dimensions.map((d) => `${d.label} ${d.score}`).join('，') +
+        `。${weaknesses.length > 0 ? `主要短板在${weaknesses.map((w) => w.split(' ')[0]).join('、')}。` : '各维度均衡。'}`,
+      strengths,
+      weaknesses,
+      prescriptions,
+    };
+  }
+
+  /**
+   * 规则版不假装会讲题：明确告知未启用 AI 讲解，
+   * 并按错因给出可操作的学习建议（诚实降级 > 生成误导内容）。
+   */
+  async explainQuestion(input: ExplainInput): Promise<ExplainResult> {
+    const adviceByReason: Record<string, string> = {
+      概念不清: '先回到课本把相关概念和公式抄写一遍，再合上书复述定义',
+      计算失误: '把计算过程完整写出，每步检查符号与运算优先级',
+      审题偏差: '用笔圈出题干关键词与问题，再动笔',
+      步骤缺失: '对照标准解题步骤，检查自己跳过了哪一步',
+      未作答: '先写下已知条件和相关问题，尝试列出可用公式',
+    };
+    const advice = input.wrongReason
+      ? adviceByReason[input.wrongReason] ?? '先独立思考 5 分钟，再对照解析'
+      : '先独立思考 5 分钟，再对照解析';
+    return {
+      available: false,
+      steps: [
+        { phase: 'read', text: `题目：${input.title}` },
+        { phase: 'hint', text: `建议：${advice}` },
+      ],
+      similarTip: '可在错题本点「举一反三」获取同类题练习',
+      encouragement: '配置 AI_API_KEY 后可获得分步引导讲解',
     };
   }
 

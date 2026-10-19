@@ -73,6 +73,9 @@
         </text>
       </view>
       <view class="row gap-8" style="margin-top:16rpx">
+        <button class="btn btn-sm btn-ghost" style="margin:0" bindtap="explainQuestion"
+                data-subject="{{item.subject}}" data-title="{{item.title}}"
+                data-kp="{{item.knowledgePoint || item.chapter}}" data-reason="{{item.reason}}">听讲解</button>
         <button class="btn btn-sm btn-ghost" style="margin:0" data-title="{{item.title}}" bindtap="variant" data-subject="{{item.subject}}" data-title="{{item.title}}" data-kp="{{item.knowledgePoint || item.chapter}}">举一反三</button>
         <button wx:if="{{role === 'student' && item.status === 'open'}}"
                 class="btn btn-sm btn-ghost" style="margin:0" data-id="{{item.id}}" bindtap="markCorrected">标记已订正</button>

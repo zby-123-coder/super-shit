@@ -106,6 +106,30 @@ echo "=== 12. 运营工作流（学生 403，管理员可用） ==="
 expect "$(api POST /api/ops/generate "$S1" '{"grade":"初二","region":"杭州","subject":"数学"}')" 403 "学生越权使用运营台"
 expect "$(api POST /api/ops/generate "$ADMIN" '{"grade":"初二","region":"杭州","subject":"数学","material":"联调素材"}')" 201 "管理员生成运营文案"
 
+echo "=== 13. 数据飞轮：诊断 → 复习 → 讲解 ==="
+# 诊断（家长看孩子：200；未绑定老师：403；天数非法：400）
+expect "$(api GET "/api/report/diagnosis?days=30" "$P1")" 200 "家长查看学情诊断"
+expect "$(api GET "/api/report/diagnosis?studentUserId=$S1_ID" "$T2")" 403 "未绑定老师越权看诊断"
+expect "$(api GET "/api/report/diagnosis?days=15" "$P1")" 400 "诊断天数参数非法被拒"
+
+# 错题 → 订正自动排期 → 完成复习推进阶段
+WQ_ID=$($PSQL -d "$DB" -tAc "select id from wrong_question where student_user_id='$S1_ID' order by _created_at desc limit 1")
+if [ -z "$WQ_ID" ]; then
+  WQ_OUT=$(api POST /api/wrong-question "$S1" '{"subject":"数学","title":"联调错题","reason":"概念不清"}')
+  WQ_ID=$(echo "$WQ_OUT" | jqget id)
+fi
+expect "$(api PATCH "/api/wrong-question/$WQ_ID/corrected" "$S1")" 200 "学生标记订正（自动排期）"
+expect "$(api GET /api/wrong-question/review-plan "$S1")" 200 "复习计划可见"
+expect "$(api POST "/api/wrong-question/$WQ_ID/review-done" "$S1")" 201 "完成一轮复习"
+expect "$(api POST "/api/wrong-question/$WQ_ID/review-skip" "$S1")" 201 "跳过一轮复习"
+
+# 复习提醒触发（仅管理员）
+expect "$(api POST /api/wrong-question/review-reminder/run "$ADMIN")" 201 "管理员触发复习提醒"
+expect "$(api POST /api/wrong-question/review-reminder/run "$S1")" 403 "学生越权触发复习提醒"
+
+# 引导式讲题（学生可用；规则版 available=false 也是 200）
+expect "$(api POST /api/ai/explain "$S1" '{"subject":"数学","title":"已知 x²=16，求 x","knowledgePoint":"二次函数","wrongReason":"概念不清"}')" 201 "学生获取引导式讲解"
+
 echo ""
 echo "========== RESULT: $PASS passed, $FAIL failed =========="
 [ "$FAIL" -eq 0 ]

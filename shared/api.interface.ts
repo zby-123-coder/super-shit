@@ -7,6 +7,39 @@ export interface WeeklyReportSection {
   lines: string[];
 }
 
+export interface DiagnosisDimension {
+  key: string;
+  label: string;
+  score: number;
+  detail: string;
+}
+
+export interface DiagnosisReasonCount {
+  reason: string;
+  count: number;
+}
+
+export interface DiagnosisPrescription {
+  action: string;
+  reason: string;
+}
+
+export interface Diagnosis {
+  studentUserId: string;
+  studentName: string;
+  days: number;
+  generatedAt: string;
+  dimensions: DiagnosisDimension[];
+  topReasons: DiagnosisReasonCount[];
+  summary: string;
+  strengths: string[];
+  weaknesses: string[];
+  prescriptions: DiagnosisPrescription[];
+  /** 样本量提示：数据不足时前端应显示谨慎结论 */
+  sampleSize: number;
+  sampleSufficient: boolean;
+}
+
 export interface WeeklyReport {
   studentName: string;
   weekStart: string;
@@ -35,8 +68,12 @@ export interface WrongQuestionDTO {
   title: string;
   reason: string;
   knowledgePoint: string;
-  status: 'open' | 'corrected';
+  status: 'open' | 'corrected' | 'mastered';
   createdAt: string;
+  /** 复习排期：当前轮次 / 已完成轮次 / 下次复习时间（无排期为 null） */
+  reviewStage: number;
+  reviewCount: number;
+  nextReviewAt: string | null;
 }
 
 export interface SaveWrongQuestionRequest {
@@ -101,6 +138,18 @@ export interface OpsGenerateResponse {
   summary: string;
   posts: OpsPostDraft[];
   draftId: string | null;
+}
+
+export interface ExplainStep {
+  phase: 'read' | 'hint' | 'explain';
+  text: string;
+}
+
+export interface ExplainResult {
+  available: boolean;
+  steps: ExplainStep[];
+  similarTip: string;
+  encouragement: string;
 }
 
 export interface QuestionBankItem {

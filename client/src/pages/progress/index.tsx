@@ -21,6 +21,7 @@ import {
 } from '@client/src/components/ui/select';
 import { EmptyBlock, LoadingBlock, PageHeader } from '@client/src/components/PageShell';
 import { progressApi } from '@client/src/api';
+import DiagnosisCard from '@client/src/components/DiagnosisCard';
 import { useAccount } from '@client/src/hooks/useAccount';
 import type { ProgressDTO } from '@shared/api.interface';
 
@@ -119,7 +120,9 @@ const ProgressPage = () => {
   };
 
   return (
-    <div>
+    <>
+      <DiagnosisCard studentUserId={target || undefined} />
+      <div>
       <PageHeader
         title="学习进度"
         subtitle={isStaff ? '更新学员章节完成度' : '按科目查看章节完成情况'}
@@ -238,7 +241,8 @@ const ProgressPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </>
   );
 };
 
