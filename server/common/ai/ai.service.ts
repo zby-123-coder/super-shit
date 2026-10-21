@@ -33,7 +33,12 @@ export class AiService {
   constructor() {
     this.llm = process.env.AI_API_KEY ? new LlmAiProvider() : null;
     if (this.llm) {
-      this.logger.log(`AI 提供方：${this.llm.name}（${process.env.AI_MODEL ?? 'gpt-4o-mini'}）`);
+      const vision = process.env.AI_VISION_MODEL
+        ? `，识图模型：${process.env.AI_VISION_MODEL}`
+        : '，识图：随主模型（纯文本模型如 deepseek-chat 将对该项诚实降级）';
+      this.logger.log(
+        `AI 提供方：${this.llm.name}（${process.env.AI_MODEL ?? 'gpt-4o-mini'}）${vision}`,
+      );
     } else {
       this.logger.log('AI 提供方：rule（未配置 AI_API_KEY，使用规则版）');
     }

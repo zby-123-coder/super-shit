@@ -568,6 +568,31 @@ export const admissionMajor = pgTable("admission_major", {
   updatedBy: varchar("_updated_by", { length: 64 }),
 }, (table) => [uniqueIndex("uk_admission_major").on(table.name)]);
 
+export const educationKb = pgTable("education_kb", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  /** gaokao 高考 / zhongkao 中考 */
+  stage: varchar("stage", { length: 16 }).notNull().default('gaokao'),
+  /** policy 政策 / zhiyuan 志愿填报 / xuanke 选科 / timeline 时间线 / special 特殊招生 / faq 常见问题 */
+  category: varchar("category", { length: 32 }).notNull().default('faq'),
+  /** 适用地域：全国 / 省份 / 城市 */
+  region: varchar("region", { length: 64 }).notNull().default('全国'),
+  title: varchar("title", { length: 255 }).notNull(),
+  /** FAQ 的原始问法（智能客服检索时优先匹配用户问句） */
+  question: text("question"),
+  content: text("content").notNull(),
+  /** 检索关键词（关键词检索的第一层；RAG 接入后此字段转为语料标签） */
+  keywords: text("keywords").array(),
+  /** 信息来源（站点/文件），公开发布前需人工核实 */
+  source: varchar("source", { length: 255 }),
+  createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  createdBy: varchar("_created_by", { length: 64 }),
+  updatedAt: customTimestamptz("_updated_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedBy: varchar("_updated_by", { length: 64 }),
+}, (table) => [
+  uniqueIndex("uk_edu_kb_title").on(table.stage, table.title),
+  index("idx_kb_stage_category").on(table.stage, table.category),
+]);
+
 // table aliases
 export const appProfileTable = appProfile;
 export const articleTable = article;

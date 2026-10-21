@@ -26,6 +26,13 @@ import type {
  *   AI_BASE_URL=https://api.openai.com/v1        # 或你自己的模型服务地址
  *   AI_MODEL=gpt-4o-mini                          # 模型名
  *
+ * DeepSeek 示例（OpenAI 兼容协议，直接可用）：
+ *   AI_API_KEY=sk-xxxx
+ *   AI_BASE_URL=https://api.deepseek.com
+ *   AI_MODEL=deepseek-chat
+ *   # deepseek-chat 不支持图片输入，识图批改需另配多模态模型（不配则该项诚实降级）：
+ *   AI_VISION_MODEL=qwen-vl-plus
+ *
  * 未配置 AI_API_KEY 时 AiService 不会实例化本类，业务无感降级到规则版。
  * 请求/响应格式如与你的服务不一致，只改本文件的 chat() 即可。
  */
@@ -35,6 +42,15 @@ export class LlmAiProvider implements AiProvider {
   private readonly apiKey = process.env.AI_API_KEY ?? '';
   private readonly baseUrl = process.env.AI_BASE_URL ?? 'https://api.openai.com/v1';
   private readonly model = process.env.AI_MODEL ?? 'gpt-4o-mini';
+  /** 识图批改专用模型（多模态）；未配置时默认用主模型 */
+  private readonly visionModel = process.env.AI_VISION_MODEL ?? '';
+  /** 已知不支持图片输入的纯文本模型：跳过请求，直接诚实降级 */
+  private static readonly TEXT_ONLY_MODELS = new Set([
+    'deepseek-chat',
+    'deepseek-reasoner',
+    'deepseek-r1',
+    'deepseek-v3',
+  ]);
 
   private async chat(system: string, user: string): Promise<string> {
     const res = await fetch(`${this.baseUrl}/chat/completions`, {
@@ -85,6 +101,18 @@ export class LlmAiProvider implements AiProvider {
     if (input.images.length === 0) {
       return { available: true, items: [], summary: '该打卡没有上传图片，无需识图批改。' };
     }
+    // 视觉模型边界：deepseek-chat 等纯文本模型不支持 image_url，直接诚实降级，
+    // 不浪费一次注定失败的调用；用户可通过 AI_VISION_MODEL 单独配多模态模型。
+    const visionModel = this.visionModel || this.model;
+    if (LlmAiProvider.TEXT_ONLY_MODELS.has(visionModel.toLowerCase())) {
+      return {
+        available: false,
+        items: [],
+        summary:
+          `当前模型（${visionModel}）不支持图片输入，识图批改暂不可用。` +
+          '可在 .env.local 配置 AI_VISION_MODEL 为多模态模型（如 qwen-vl-plus / glm-4v / gpt-4o）后启用。',
+      };
+    }
     // 多模态消息：图片 + 指令，要求模型输出 JSON
     const contentParts: unknown[] = [
       {
@@ -108,7 +136,7 @@ export class LlmAiProvider implements AiProvider {
         Authorization: `Bearer ${this.apiKey}`,
       },
       body: JSON.stringify({
-        model: this.model,
+        model: visionModel,
         messages: [{ role: 'user', content: contentParts }],
         temperature: 0.2,
         max_tokens: 1200,

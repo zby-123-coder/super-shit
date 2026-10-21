@@ -150,5 +150,15 @@ expect "$(api GET /api/admission/schools "$S1")" 200 "学校库查询"
 expect "$(api POST /api/admission/match "$S1" '{"subjects":["物理","化学","生物"]}')" 201 "选科匹配可报专业"
 
 echo ""
+echo "=== 17. 教育知识库（中高考信息检索） ==="
+expect "$(api GET "/api/kb/search?keyword=%E5%B9%B3%E8%A1%8C%E5%BF%97%E6%84%BF" "$S1")" 200 "关键词检索：平行志愿"
+expect "$(api GET "/api/kb/search?stage=zhongkao&category=policy" "$S1")" 200 "过滤检索：中考政策"
+expect "$(api GET "/api/kb/search?keyword=%E4%B8%8D%E5%AD%98%E5%9C%A8xyzq" "$S1")" 200 "无结果返回空数组"
+expect "$(api GET /api/kb/stats "$S1")" 200 "分类统计"
+expect "$(api POST /api/kb/entries "$S1" '{"stage":"gaokao","category":"faq","title":"itest临时条目","content":"itest 验证用，可被覆盖"}')" 201 "人工补库 upsert"
+expect "$(api POST /api/kb/entries "$S1" '{"stage":"gaokao","category":"faq","title":"itest临时条目","content":"itest 覆盖更新"}')" 201 "重复 upsert 幂等"
+expect "$(api POST /api/kb/entries "$S1" '{"stage":"bad","category":"faq","title":"x","content":"y"}')" 400 "非法 stage 被拒"
+
+echo ""
 echo "========== RESULT: $PASS passed, $FAIL failed =========="
 [ "$FAIL" -eq 0 ]
