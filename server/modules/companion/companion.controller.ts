@@ -57,4 +57,11 @@ export class CompanionController {
     const { userId } = req.userContext;
     return this.service.listMessages(userId, id);
   }
+
+  /** 小引对该学生的记忆卡（跨会话累积，权限同会话隔离） */
+  @Get('memory')
+  async memory(@Req() req: Request, @Query('studentUserId') studentUserId?: string) {
+    const { userId } = req.userContext;
+    return this.service.memory(userId, studentUserId);
+  }
 }

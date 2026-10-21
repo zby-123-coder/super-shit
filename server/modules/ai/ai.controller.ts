@@ -1,7 +1,8 @@
-import { Body, Controller, ForbiddenException, Get, Param, Post, Req } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, Param, Post, Query, Req } from '@nestjs/common';
 import { IsNumber, IsOptional, IsString, MaxLength } from 'class-validator';
 import type { Request } from 'express';
 import { AiService } from '@server/common/ai/ai.service';
+import { AiInvocationService } from './ai-invocation.service';
 import { DRIZZLE_DATABASE, type PostgresJsDatabase } from '@server/common/drizzle';
 import { Inject } from '@nestjs/common';
 import { studyTask, taskCheckin } from '@server/database/schema';
@@ -70,6 +71,7 @@ export class AiController {
     @Inject(DRIZZLE_DATABASE) private readonly db: PostgresJsDatabase,
     private readonly storageService: StorageService,
     private readonly accountService: AccountService,
+    private readonly invocationService: AiInvocationService,
   ) {}
 
   /** 当前生效的 AI 提供方（前端可据此提示"AI 已接入/使用规则版"） */
@@ -78,14 +80,30 @@ export class AiController {
     return { provider: this.aiService.providerName };
   }
 
+  /** 我的 AI 调用历史（callId / 时间 / 功能 / 耗时 / 提供方），严格按登录用户隔离 */
+  @Get('logs')
+  logs(@Req() req: Request, @Query('feature') feature?: string, @Query('limit') limit?: string) {
+    const { userId } = req.userContext;
+    return this.invocationService.list(userId, {
+      feature,
+      limit: limit ? Number(limit) : undefined,
+    });
+  }
+
   @Post('review-draft')
-  async reviewDraft(@Body() dto: ReviewDraftDto) {
+  async reviewDraft(@Req() req: Request, @Body() dto: ReviewDraftDto) {
+    const { userId, role } = req.userContext;
+    const started = Date.now();
     const draft = await this.aiService.reviewDraft({
       content: dto.content,
       durationMin: dto.durationMin ?? 0,
       taskTitle: dto.taskTitle,
     });
-    return { draft };
+    const callId = await this.invocationService.record(
+      { userId, role, feature: 'review_draft', scopeType: 'task_title', scopeId: dto.taskTitle },
+      { provider: this.aiService.providerName, status: 'success', latencyMs: Date.now() - started, preview: draft },
+    );
+    return { draft, callId };
   }
 
   /**
@@ -93,24 +111,48 @@ export class AiController {
    * 权限：登录用户可用（自己的错题场景），无敏感数据外泄。
    */
   @Post('explain')
-  async explain(@Body() dto: ExplainDto) {
-    return this.aiService.explainQuestion({
+  async explain(@Req() req: Request, @Body() dto: ExplainDto) {
+    const { userId, role } = req.userContext;
+    const started = Date.now();
+    const result = await this.aiService.explainQuestion({
       subject: dto.subject,
       title: dto.title,
       knowledgePoint: dto.knowledgePoint,
       wrongReason: dto.wrongReason,
       studentAnswer: dto.studentAnswer,
     });
+    const callId = await this.invocationService.record(
+      {
+        userId,
+        role,
+        feature: 'explain',
+        scopeType: 'question',
+        scopeId: `${dto.subject}:${dto.title}`.slice(0, 200),
+      },
+      {
+        provider: this.aiService.providerName,
+        status: result.available ? 'success' : 'degraded',
+        latencyMs: Date.now() - started,
+        preview: result.steps?.[0]?.text,
+      },
+    );
+    return { ...result, callId };
   }
 
   @Post('variant')
-  async variant(@Body() dto: VariantDto) {
+  async variant(@Req() req: Request, @Body() dto: VariantDto) {
+    const { userId, role } = req.userContext;
+    const started = Date.now();
     const variant = await this.aiService.variant({
       subject: dto.subject,
       title: dto.title,
       knowledgePoint: dto.knowledgePoint,
     });
-    return { variant };
+    const callId = await this.invocationService.record(
+      { userId, role, feature: 'variant', scopeType: 'question', scopeId: dto.title.slice(0, 200) },
+      { provider: this.aiService.providerName, status: 'success', latencyMs: Date.now() - started, preview: variant ?? undefined },
+    );
+    return { variant, callId };
   }
 
   /**
@@ -163,11 +205,22 @@ export class AiController {
       .where(eq(studyTask.id, taskId))
       .limit(1);
     const taskInfo = tasks[0];
-    return this.aiService.gradeHomework({
+    const started = Date.now();
+    const result = await this.aiService.gradeHomework({
       subject: taskInfo?.subject ?? '未指定',
       taskTitle: taskInfo?.title ?? `任务 ${taskId.slice(0, 8)}`,
       images,
       content: checkin.content ?? '',
     });
+    const callId = await this.invocationService.record(
+      { userId, role, feature: 'grade_homework', scopeType: 'task', scopeId: taskId },
+      {
+        provider: this.aiService.providerName,
+        status: result.available ? 'success' : 'degraded',
+        latencyMs: Date.now() - started,
+        preview: result.summary,
+      },
+    );
+    return { ...result, callId };
   }
 }

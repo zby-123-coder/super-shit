@@ -121,7 +121,7 @@ const ProgressPage = () => {
 
   return (
     <>
-      <DiagnosisCard studentUserId={target || undefined} />
+      <DiagnosisCard studentUserId={target || undefined} ownerUserId={data?.profile?.userId} />
       <div>
       <PageHeader
         title="学习进度"

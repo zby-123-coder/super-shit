@@ -172,6 +172,12 @@ export interface CompanionSessionDTO {
   status: string;
   topic: string;
   createdAt: string;
+  /** 消息条数（历史列表展示） */
+  messageCount?: number;
+  /** 最后活跃时间 */
+  lastActiveAt?: string;
+  /** 绑定的错题（每题一个会话） */
+  wrongQuestionId?: string | null;
 }
 
 export interface CompanionMessageDTO {
@@ -179,6 +185,28 @@ export interface CompanionMessageDTO {
   role: string;
   content: string;
   stage: string;
+  createdAt: string;
+}
+
+/** 小引对该学生的记忆（跨会话累积，严格按学生隔离） */
+export interface CompanionMemoryDTO {
+  id: string;
+  kind: string;
+  content: string;
+  importance: number;
+  updatedAt: string;
+}
+
+/** AI 调用记录（回看历史用，按登录用户隔离） */
+export interface AiInvocationLogDTO {
+  callId: string;
+  feature: string;
+  scopeType: string;
+  scopeId: string;
+  provider: string;
+  status: string;
+  latencyMs: number;
+  preview: string;
   createdAt: string;
 }
 

@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
-import { Button } from '@client/src/components/ui/button';
 import { Card, CardContent } from '@client/src/components/ui/card';
 import {
   Select,
@@ -10,35 +9,40 @@ import {
   SelectValue,
 } from '@client/src/components/ui/select';
 import { reportApi } from '@client/src/api';
+import { useAiFeature } from '@client/src/hooks/useAiFeature';
+import AiActionBar from '@client/src/components/AiActionBar';
+import { cacheOwner } from '@client/src/utils/ai-cache';
 import type { Diagnosis } from '@shared/api.interface';
 
 /**
  * 学情诊断卡片（数据飞轮的「洞察」环节）。
  * 家长看孩子、老师看学生、学生看自己；样本不足时明确提示。
+ *
+ * 交互约定：**绝不自动调用**——进页面只读本地缓存，
+ * 展示上次结果（带生成时间与 callId），用户点「生成诊断/重新生成」才请求 AI。
  */
-const DiagnosisCard = ({ studentUserId }: { studentUserId?: string }) => {
+const DiagnosisCard = ({
+  studentUserId,
+  ownerUserId,
+}: {
+  studentUserId?: string;
+  /** 缓存归属用户（登录人），保证按身份隔离 */
+  ownerUserId?: string;
+}) => {
   const [days, setDays] = useState<string>('30');
-  const [data, setData] = useState<Diagnosis | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
+  const owner = cacheOwner(ownerUserId);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const result = await reportApi.diagnosis({
-        studentUserId,
-        days: Number(days),
-      });
-      setData(result);
-    } catch (error) {
-      toast.error('诊断加载失败');
-    } finally {
-      setLoading(false);
-    }
+  const fetcher = useCallback(async () => {
+    const result = await reportApi.diagnosis({ studentUserId, days: Number(days) });
+    return { data: result as Diagnosis, provider: 'ai' };
   }, [days, studentUserId]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  const ai = useAiFeature<Diagnosis>(owner, 'diagnosis', {
+    scopeId: `${studentUserId || 'self'}:${days}`,
+    fetcher,
+  });
+
+  const data = ai.data;
 
   return (
     <Card>
@@ -59,9 +63,24 @@ const DiagnosisCard = ({ studentUserId }: { studentUserId?: string }) => {
           </Select>
         </div>
 
-        {loading ? (
-          <p className="text-sm text-muted-foreground">分析中…</p>
-        ) : data ? (
+        <AiActionBar
+          loading={ai.loading}
+          hasCache={ai.hasCache}
+          cachedAt={ai.cachedAt}
+          callId={ai.callId}
+          provider={ai.provider}
+          label="生成诊断"
+          onRun={async () => {
+            const result = await ai.run();
+            if (!result) toast.error('诊断生成失败，请稍后重试');
+          }}
+        />
+
+        {ai.error ? (
+          <p className="rounded-lg bg-destructive/10 p-3 text-xs text-destructive">生成失败：{ai.error}</p>
+        ) : null}
+
+        {data ? (
           <div className="flex flex-col gap-3">
             {!data.sampleSufficient ? (
               <p className="rounded-lg bg-muted p-3 text-xs text-muted-foreground">
@@ -119,12 +138,16 @@ const DiagnosisCard = ({ studentUserId }: { studentUserId?: string }) => {
                 </div>
               </div>
             ) : null}
-
-            <Button size="sm" variant="outline" onClick={load}>
-              刷新诊断
-            </Button>
           </div>
-        ) : null}
+        ) : (
+          !ai.loading && (
+            <div className="rounded-lg border border-dashed p-6 text-center">
+              <p className="text-sm text-muted-foreground">
+                还没有诊断结果。点上方「生成诊断」调用 AI 分析，结果会缓存到本地，下次直接看。
+              </p>
+            </div>
+          )
+        )}
       </CardContent>
     </Card>
   );

@@ -13,6 +13,8 @@ import type {
   AssignRelationRequest,
   CheckinDTO,
   CompanionMessageDTO,
+  CompanionMemoryDTO,
+  AiInvocationLogDTO,
   InsightDTO,
   CompanionSessionDTO,
   CreateCheckinRequest,
@@ -261,12 +263,23 @@ export const companionApi = {
   start: (data: {
     studentUserId?: string;
     wrongQuestionId?: string;
-  }): Promise<{ session: CompanionSessionDTO; messages: CompanionMessageDTO[] }> =>
+    /** true=复用已有会话（不产生 AI 调用） */
+    fresh?: boolean;
+  }): Promise<{
+    session: CompanionSessionDTO;
+    messages: CompanionMessageDTO[];
+    resolved?: boolean;
+    callMeta?: { callId?: string | null; latencyMs?: number; provider?: string; available?: boolean };
+  }> =>
     request({ url: '/api/companion/start', method: 'POST', data }),
   send: (
     sessionId: string,
     content: string,
-  ): Promise<{ messages: CompanionMessageDTO[]; session: CompanionSessionDTO }> =>
+  ): Promise<{
+    messages: CompanionMessageDTO[];
+    session: CompanionSessionDTO;
+    callMeta?: { callId?: string | null; latencyMs?: number; provider?: string; available?: boolean };
+  }> =>
     request({
       url: `/api/companion/sessions/${sessionId}/messages`,
       method: 'POST',
@@ -276,6 +289,8 @@ export const companionApi = {
     request({ url: '/api/companion/sessions', method: 'GET', params: { studentUserId } }),
   messages: (sessionId: string): Promise<CompanionMessageDTO[]> =>
     request({ url: `/api/companion/sessions/${sessionId}`, method: 'GET' }),
+  memory: (studentUserId?: string): Promise<CompanionMemoryDTO[]> =>
+    request({ url: '/api/companion/memory', method: 'GET', params: { studentUserId } }),
 };
 
 export const opsApi = {
@@ -319,7 +334,7 @@ export const aiApi = {
     knowledgePoint?: string;
   }): Promise<{ variant: string | null }> =>
     request({ url: '/api/ai/variant', method: 'POST', data }),
-  gradeHomework: (taskId: string): Promise<HomeworkGradeResult> =>
+  gradeHomework: (taskId: string): Promise<HomeworkGradeResult & { callId?: string | null }> =>
     request({ url: `/api/ai/grade-homework/${taskId}`, method: 'POST' }),
   explain: (data: {
     subject: string;
@@ -327,8 +342,11 @@ export const aiApi = {
     knowledgePoint?: string;
     wrongReason?: string;
     studentAnswer?: string;
-  }): Promise<ExplainResult> =>
+  }): Promise<ExplainResult & { callId?: string | null }> =>
     request({ url: '/api/ai/explain', method: 'POST', data }),
+  /** 我的 AI 调用历史（callId / 时间 / 功能 / 耗时 / 提供方），后端按登录用户隔离 */
+  logs: (params?: { feature?: string; limit?: number }): Promise<AiInvocationLogDTO[]> =>
+    request({ url: '/api/ai/logs', method: 'GET', params }),
 };
 
 export const demoApi = {

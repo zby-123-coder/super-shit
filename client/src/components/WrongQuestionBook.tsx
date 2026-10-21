@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Badge } from '@client/src/components/ui/badge';
 import { Button } from '@client/src/components/ui/button';
@@ -13,9 +14,10 @@ import { Input } from '@client/src/components/ui/input';
 import { Textarea } from '@client/src/components/ui/textarea';
 import { EmptyBlock, LoadingBlock } from '@client/src/components/PageShell';
 import { aiApi, questionBankApi, wrongQuestionApi } from '@client/src/api';
-import CompanionDialog from '@client/src/components/CompanionDialog';
+import AiActionBar from '@client/src/components/AiActionBar';
 import { useAccount } from '@client/src/hooks/useAccount';
 import { generateVariant } from '@client/src/utils/variant';
+import { cacheOwner, readAiCache, writeAiCache } from '@client/src/utils/ai-cache';
 import type {
   ExplainResult,
   QuestionBankItem,
@@ -25,8 +27,11 @@ import type {
 /** 错题本：学生录入与订正，家长/老师只读，支持数字变式 */
 const WrongQuestionBook = () => {
   const { data } = useAccount();
+  const navigate = useNavigate();
   const role = data?.profile?.role ?? 'student';
   const isStudent = role === 'student';
+  /** 缓存归属：登录人 userId（保证按身份隔离） */
+  const ownerId = cacheOwner(data?.profile?.userId);
   const [items, setItems] = useState<WrongQuestionDTO[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [open, setOpen] = useState<boolean>(false);
@@ -48,13 +53,52 @@ const WrongQuestionBook = () => {
   );
   const [recommends, setRecommends] = useState<QuestionBankItem[] | null>(null);
   const [recommending, setRecommending] = useState<boolean>(false);
-  // 引导式讲题
+  // 引导式讲题（缓存优先：命中缓存不调 AI，用户点「重新生成」才真调用）
   const [explain, setExplain] = useState<ExplainResult | null>(null);
+  const [explainItem, setExplainItem] = useState<WrongQuestionDTO | null>(null);
   const [explaining, setExplaining] = useState<boolean>(false);
+  const [explainCachedAt, setExplainCachedAt] = useState<number | null>(null);
   const [showDetail, setShowDetail] = useState<boolean>(false);
+
+  /** 打开讲解：有缓存直接展示；无缓存则本次点击触发一次 AI 调用 */
+  const openExplain = useCallback(
+    async (item: WrongQuestionDTO, force = false) => {
+      setExplainItem(item);
+      const cached = readAiCache<ExplainResult>(ownerId, 'explain', item.id);
+      if (cached && !force) {
+        setExplain(cached.data);
+        setExplainCachedAt(cached.at);
+        return;
+      }
+      setExplaining(true);
+      setExplain(null);
+      try {
+        const result = await aiApi.explain({
+          subject: item.subject,
+          title: item.title,
+          knowledgePoint: item.knowledgePoint,
+          wrongReason: item.reason,
+        });
+        const entry = writeAiCache<ExplainResult>(ownerId, 'explain', item.id, {
+          callId: result.callId,
+          provider: 'ai',
+          data: result,
+        });
+        setExplain(entry.data);
+        setExplainCachedAt(entry.at);
+      } catch (error) {
+        toast.error('讲解生成失败，请重试');
+      } finally {
+        setExplaining(false);
+      }
+    },
+    [ownerId],
+  );
   // AI 陪伴
-  const [companionOpen, setCompanionOpen] = useState<boolean>(false);
-  const [companionWqId, setCompanionWqId] = useState<string | undefined>(undefined);
+  const [companionOpen] = useState<boolean>(false);
+  const [companionWqId] = useState<string | undefined>(undefined);
+  void companionOpen;
+  void companionWqId;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -190,35 +234,21 @@ const WrongQuestionBook = () => {
               size="sm"
               variant="secondary"
               onClick={() => {
-                setCompanionWqId(item.id);
-                setCompanionOpen(true);
+                navigate(`/companion?wq=${item.id}`);
               }}
             >
-              小引陪练
+              问小引
             </Button>
             <Button
               size="sm"
               variant="ghost"
               disabled={explaining}
-              onClick={async () => {
-                setExplaining(true);
+              onClick={() => {
                 setShowDetail(false);
-                try {
-                  const result = await aiApi.explain({
-                    subject: item.subject,
-                    title: item.title,
-                    knowledgePoint: item.knowledgePoint,
-                    wrongReason: item.reason,
-                  });
-                  setExplain(result);
-                } catch (error) {
-                  toast.error('讲解加载失败');
-                } finally {
-                  setExplaining(false);
-                }
+                void openExplain(item);
               }}
             >
-              {explaining ? '加载中…' : '听讲解'}
+              {explaining ? 'AI 讲解中…' : 'AI 讲解'}
             </Button>
             <Button
               size="sm"
@@ -333,17 +363,12 @@ const WrongQuestionBook = () => {
         </DialogContent>
       </Dialog>
 
-      <CompanionDialog
-        open={companionOpen}
-        onOpenChange={setCompanionOpen}
-        wrongQuestionId={companionWqId}
-      />
-
       <Dialog
         open={!!explain}
         onOpenChange={(openFlag: boolean) => {
           if (!openFlag) {
             setExplain(null);
+            setExplainItem(null);
             setShowDetail(false);
           }
         }}
@@ -354,9 +379,19 @@ const WrongQuestionBook = () => {
           </DialogHeader>
           {explain ? (
             <div className="flex flex-col gap-3">
+              <AiActionBar
+                loading={explaining}
+                hasCache={explainCachedAt !== null}
+                cachedAt={explainCachedAt}
+                label="生成讲解"
+                reloadLabel="重新生成讲解"
+                onRun={() => {
+                  if (explainItem) void openExplain(explainItem, true);
+                }}
+              />
               {!explain.available ? (
                 <p className="rounded-lg bg-muted p-3 text-xs text-muted-foreground">
-                  AI 讲解未启用（未配置 AI_API_KEY），以下为通用学习建议。
+                  AI 讲解未启用（当前为规则版），以下为通用学习建议；配置 AI_API_KEY 后可获得分步引导。
                 </p>
               ) : null}
               {explain.steps.map((step, index) => {

@@ -73,12 +73,13 @@ export const STAGE_LABEL: Record<CompanionStage, string> = {
   close: '收尾',
 };
 
-/** 生成 system prompt：人设 + 阶段指令 + 数据隔离声明 */
+/** 生成 system prompt：人设 + 阶段指令 + 数据隔离声明 + 该学生记忆 */
 export function buildSystemPrompt(
   persona: PersonaCard,
   stage: CompanionStage,
   studentName: string,
   question?: { title: string; knowledgePoint?: string; wrongReason?: string },
+  memories?: { content: string; kind: string }[],
 ): string {
   const stageInfo = persona.stageFlow.find((item) => item.stage === stage) ?? persona.stageFlow[0];
   const lines: string[] = [];
@@ -96,6 +97,13 @@ export function buildSystemPrompt(
   lines.push('');
   lines.push(`【当前阶段：${STAGE_LABEL[stage]}】`);
   lines.push(`本阶段目标：${stageInfo.goal}`);
+  if (memories && memories.length > 0) {
+    lines.push('');
+    lines.push('【你对该学生的记忆（跨会话累积，仅此一位学生）】');
+    lines.push('说话时自然带上这些记忆，不要生硬罗列：');
+    for (const memory of memories) lines.push(`- ${memory.content}`);
+    lines.push('禁止编造记忆中没有的内容。');
+  }
   if (question) {
     lines.push('');
     lines.push('【本题信息（仅学生本人数据）】');

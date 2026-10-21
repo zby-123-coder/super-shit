@@ -23,6 +23,7 @@ import {
   messageApi,
 } from '@client/src/api';
 import { refreshAccount, useAccount } from '@client/src/hooks/useAccount';
+import AiHistoryPanel from '@client/src/components/AiHistoryPanel';
 import { clearToken } from '@client/src/utils/auth-token';
 import type { MessageDTO, UserRole } from '@shared/api.interface';
 
@@ -398,6 +399,8 @@ const MePage = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <AiHistoryPanel ownerUserId={data?.profile?.userId} />
 
         <Card>
           <CardContent className="p-4">

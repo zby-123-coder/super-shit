@@ -160,5 +160,15 @@ expect "$(api POST /api/kb/entries "$S1" '{"stage":"gaokao","category":"faq","ti
 expect "$(api POST /api/kb/entries "$S1" '{"stage":"bad","category":"faq","title":"x","content":"y"}')" 400 "非法 stage 被拒"
 
 echo ""
+echo "=== 18. AI 调用缓存/留痕/记忆（新增能力） ==="
+expect "$(api GET /api/ai/logs "$S1")" 200 "AI 调用历史（按用户隔离）"
+expect "$(api GET "/api/ai/logs?feature=companion" "$S1")" 200 "按功能筛选调用历史"
+expect "$(api GET /api/ai/status "$S1")" 200 "AI 提供方状态"
+expect "$(api GET /api/companion/sessions "$S1")" 200 "陪练会话列表（含消息数）"
+expect "$(api GET /api/companion/memory "$S1")" 200 "小引记忆卡（按学生隔离）"
+expect "$(api POST /api/companion/start "$S1" '{"topic":"缓存复用验证"}')" 201 "开启陪练会话"
+expect "$(api GET /api/companion/sessions "$T1")" 403 "老师不带学生参数查会话被拒（越权防护）"
+
+echo ""
 echo "========== RESULT: $PASS passed, $FAIL failed =========="
 [ "$FAIL" -eq 0 ]

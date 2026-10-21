@@ -568,6 +568,47 @@ export const admissionMajor = pgTable("admission_major", {
   updatedBy: varchar("_updated_by", { length: 64 }),
 }, (table) => [uniqueIndex("uk_admission_major").on(table.name)]);
 
+export const aiInvocationLog = pgTable("ai_invocation_log", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  /** 调用 ID（回给前端，用于回看这次调用） */
+  callId: uuid("call_id").notNull().defaultRandom(),
+  /** 发起者（按用户隔离：只查得到自己的记录） */
+  userId: varchar("user_id", { length: 64 }).notNull(),
+  role: varchar("role", { length: 16 }),
+  /** 功能标识：diagnosis/explain/review_draft/variant/grade_homework/companion/weekly/ops/insight */
+  feature: varchar("feature", { length: 32 }).notNull(),
+  /** 作用范围：如 wrong_question_id / task_id / subject */
+  scopeType: varchar("scope_type", { length: 32 }),
+  scopeId: varchar("scope_id", { length: 255 }),
+  provider: varchar("provider", { length: 16 }).notNull().default('llm'),
+  /** success 正常 / degraded 降级规则版 / failed 失败 */
+  status: varchar("status", { length: 16 }).notNull().default('success'),
+  latencyMs: integer("latency_ms"),
+  resultPreview: text("result_preview"),
+  createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  index("idx_ai_log_user").on(table.userId, table.createdAt),
+  index("idx_ai_log_feature").on(table.userId, table.feature),
+]);
+
+export const aiMemory = pgTable("ai_memory", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  /** 记忆归属学生（严格按学生隔离，家长/老师不能写入他人记忆） */
+  studentUserId: varchar("student_user_id", { length: 64 }).notNull(),
+  /** weakness 薄弱点 / preference 偏好 / style 风格 / progress 进度 / fact 事实 */
+  kind: varchar("kind", { length: 24 }).notNull().default('fact'),
+  content: varchar("content", { length: 500 }).notNull(),
+  /** 重要度 1-5，注入 prompt 时取最高的几条 */
+  importance: integer("importance").notNull().default(3),
+  source: varchar("source", { length: 64 }),
+  hits: integer("hits").notNull().default(0),
+  createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: customTimestamptz("_updated_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("uk_ai_memory").on(table.studentUserId, table.content),
+  index("idx_ai_memory_student").on(table.studentUserId, table.importance),
+]);
+
 export const educationKb = pgTable("education_kb", {
   id: uuid("id").primaryKey().defaultRandom(),
   /** gaokao 高考 / zhongkao 中考 */

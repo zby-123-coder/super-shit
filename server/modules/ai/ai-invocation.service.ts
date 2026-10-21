@@ -1,0 +1,77 @@
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { and, desc, eq } from 'drizzle-orm';
+import { DRIZZLE_DATABASE, type PostgresJsDatabase } from '@server/common/drizzle';
+import { aiInvocationLog } from '@server/database/schema';
+
+export interface InvocationMeta {
+  userId: string;
+  role?: string;
+  feature: string;
+  scopeType?: string;
+  scopeId?: string;
+}
+
+/**
+ * AI 调用日志：每次真实调用都留痕（callId / 时间 / 功能 / 耗时 / 提供方 / 状态）。
+ *
+ * 目的（对应产品诉求）：
+ *   1. 前端「我的调用历史」可回看每一次 AI 调用，而不是调用完就没了
+ *   2. 排查"这次为什么慢/为什么降级"有据可查
+ *   3. 数据隔离：list() 只按 userId 过滤，用户看不到别人的调用
+ */
+@Injectable()
+export class AiInvocationService {
+  private readonly logger = new Logger(AiInvocationService.name);
+
+  constructor(@Inject(DRIZZLE_DATABASE) private readonly db: PostgresJsDatabase) {}
+
+  /** 写一条调用日志；失败不影响主流程（不能因为日志挂掉业务） */
+  async record(
+    meta: InvocationMeta,
+    extra: { provider: string; status: 'success' | 'degraded' | 'failed'; latencyMs: number; preview?: string },
+  ) {
+    try {
+      const [row] = await this.db
+        .insert(aiInvocationLog)
+        .values({
+          userId: meta.userId,
+          role: meta.role,
+          feature: meta.feature,
+          scopeType: meta.scopeType,
+          scopeId: meta.scopeId,
+          provider: extra.provider,
+          status: extra.status,
+          latencyMs: extra.latencyMs,
+          resultPreview: extra.preview?.slice(0, 500),
+        })
+        .returning({ callId: aiInvocationLog.callId });
+      return row?.callId ?? null;
+    } catch (error) {
+      this.logger.warn(`调用日志写入失败（忽略）：${(error as Error).message}`);
+      return null;
+    }
+  }
+
+  /** 我的调用历史（严格按 userId 隔离，功能筛选只能收窄不能越权） */
+  async list(userId: string, opts: { feature?: string; limit?: number } = {}) {
+    const conditions = [eq(aiInvocationLog.userId, userId)];
+    if (opts.feature) conditions.push(eq(aiInvocationLog.feature, opts.feature));
+    const rows = await this.db
+      .select()
+      .from(aiInvocationLog)
+      .where(and(...conditions))
+      .orderBy(desc(aiInvocationLog.createdAt))
+      .limit(Math.min(Math.max(opts.limit ?? 20, 1), 100));
+    return rows.map((row) => ({
+      callId: row.callId,
+      feature: row.feature,
+      scopeType: row.scopeType ?? '',
+      scopeId: row.scopeId ?? '',
+      provider: row.provider,
+      status: row.status,
+      latencyMs: row.latencyMs ?? 0,
+      preview: row.resultPreview ?? '',
+      createdAt: row.createdAt,
+    }));
+  }
+}
