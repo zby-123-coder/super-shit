@@ -48,8 +48,10 @@ export class LlmAiProvider implements AiProvider {
   private static readonly TEXT_ONLY_MODELS = new Set([
     'deepseek-chat',
     'deepseek-reasoner',
+    'deepseek-flash',
     'deepseek-r1',
     'deepseek-v3',
+    'deepseek-v4.1-flash',
   ]);
 
   private async chat(system: string, user: string): Promise<string> {
@@ -66,7 +68,9 @@ export class LlmAiProvider implements AiProvider {
           { role: 'user', content: user },
         ],
         temperature: 0.4,
-        max_tokens: 600,
+        // 不设 max_tokens：deepseek-flash 等思考型模型会先消耗大量 token 于
+        // reasoning_content，设小值会把 JSON 正文截断（finish_reason=length）导致解析失败
+        //（此前 600→1200 仍不够，思考型模型实测思考就花了 900+ token）
       }),
     });
     if (!res.ok) {
