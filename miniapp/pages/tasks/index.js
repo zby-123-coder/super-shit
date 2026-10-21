@@ -270,6 +270,11 @@ Page({
       wx.showToast({ title: err.message || '操作失败', icon: 'none' });
     }
   },
+  openCompanion(e) {
+    const id = e.currentTarget.dataset.id || '';
+    wx.navigateTo({ url: `/pages/companion/index?wrongQuestionId=${id}` });
+  },
+
   async explainQuestion(e) {
     const { subject, title, kp, reason } = e.currentTarget.dataset;
     try {

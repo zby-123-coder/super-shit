@@ -340,6 +340,80 @@ export class AccountService {
       .map((row) => row.userId);
   }
 
+  /** 家长的 userId 列表（按学生家庭） */
+  async parentsOfStudent(studentUserId: string): Promise<string[]> {
+    return this.guardianIdsOf(studentUserId);
+  }
+
+  /** 学生所在家庭的完整信息（含家长与孩子） */
+  async getFamilyByStudent(studentUserId: string): Promise<FamilyDTO | null> {
+    const rows: ProfileRow[] = await this.db
+      .select()
+      .from(appProfile)
+      .where(eq(appProfile.userId, studentUserId))
+      .limit(1);
+    if (rows.length === 0 || !rows[0].familyId) return null;
+    const familyRows = await this.db
+      .select()
+      .from(family)
+      .where(eq(family.id, rows[0].familyId))
+      .limit(1);
+    if (familyRows.length === 0) return null;
+    const members: ProfileRow[] = await this.db
+      .select()
+      .from(appProfile)
+      .where(eq(appProfile.familyId, rows[0].familyId));
+    return {
+      id: familyRows[0].id,
+      name: familyRows[0].name ?? '',
+      inviteCode: familyRows[0].inviteCode ?? '',
+      ownerUserId: familyRows[0].ownerUserId ?? '',
+      parents: members
+        .filter((row) => row.role === 'parent')
+        .map((row) => ({
+          userId: row.userId,
+          name: row.name ?? '',
+          grade: row.grade ?? '',
+          role: row.role as UserRole,
+        })),
+      students: members
+        .filter((row) => row.role === 'student')
+        .map((row) => ({
+          userId: row.userId,
+          name: row.name ?? '',
+          grade: row.grade ?? '',
+          role: row.role as UserRole,
+        })),
+    };
+  }
+
+  /** 带班老师列表 */
+  async teachersOfStudent(studentUserId: string): Promise<string[]> {
+    const rows = await this.db
+      .select({ teacherUserId: teachingLink.teacherUserId })
+      .from(teachingLink)
+      .where(eq(teachingLink.studentUserId, studentUserId));
+    return rows.map((row) => row.teacherUserId);
+  }
+
+  /** 老师的带班学生列表 */
+  async studentsOfTeacher(teacherUserId: string): Promise<string[]> {
+    const rows = await this.db
+      .select({ studentUserId: teachingLink.studentUserId })
+      .from(teachingLink)
+      .where(eq(teachingLink.teacherUserId, teacherUserId));
+    return rows.map((row) => row.studentUserId);
+  }
+
+  /** 全部学生（管理员扫描用） */
+  async allStudents(): Promise<string[]> {
+    const rows: ProfileRow[] = await this.db
+      .select()
+      .from(appProfile)
+      .where(eq(appProfile.role, 'student'));
+    return rows.map((row) => row.userId);
+  }
+
   async saveProfile(
     userId: string,
     payload: SaveProfileRequest,

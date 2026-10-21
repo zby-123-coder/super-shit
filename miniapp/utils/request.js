@@ -165,6 +165,10 @@ const api = {
     request({ url: `/api/ai/grade-homework/${taskId}`, method: 'POST' }),
   explain: (payload) =>
     request({ url: '/api/ai/explain', method: 'POST', data: payload }),
+  companionStart: (payload) =>
+    request({ url: '/api/companion/start', method: 'POST', data: payload }),
+  companionSend: (sessionId, content) =>
+    request({ url: `/api/companion/sessions/${sessionId}/messages`, method: 'POST', data: { content } }),
 
   // question-bank
   qbRecommend: (payload) =>

@@ -73,6 +73,8 @@
         </text>
       </view>
       <view class="row gap-8" style="margin-top:16rpx">
+        <button class="btn btn-sm btn-ghost" style="margin:0" bindtap="openCompanion"
+                data-id="{{item.id}}">小引陪练</button>
         <button class="btn btn-sm btn-ghost" style="margin:0" bindtap="explainQuestion"
                 data-subject="{{item.subject}}" data-title="{{item.title}}"
                 data-kp="{{item.knowledgePoint || item.chapter}}" data-reason="{{item.reason}}">听讲解</button>

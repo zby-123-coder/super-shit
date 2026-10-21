@@ -130,6 +130,25 @@ expect "$(api POST /api/wrong-question/review-reminder/run "$S1")" 403 "学生�
 # 引导式讲题（学生可用；规则版 available=false 也是 200）
 expect "$(api POST /api/ai/explain "$S1" '{"subject":"数学","title":"已知 x²=16，求 x","knowledgePoint":"二次函数","wrongReason":"概念不清"}')" 201 "学生获取引导式讲解"
 
+echo "=== 14. AI 陪练 Agent（人设/多轮/数据隔离） ==="
+CS=$(api POST /api/companion/start "$S1" '{}')
+CS_ID=$(echo "$CS" | python3 -c "import sys,json,re; raw=sys.stdin.read(); m=re.search(r'\"session\":\{\"id\":\"([^\"]+)\"', raw); print(m.group(1) if m else '')")
+expect "$CS" 201 "学生开启 AI 陪练"
+if [ -n "$CS_ID" ]; then
+  expect "$(api POST "/api/companion/sessions/$CS_ID/messages" "$S1" '{"content":"我卡在第一步"}')" 201 "陪练多轮对话"
+  expect "$(api GET "/api/companion/sessions/$CS_ID" "$T2")" 403 "他人访问陪练会话被拒"
+fi
+
+echo "=== 15. 状态洞察与决策编排 ==="
+expect "$(api GET "/api/insight/$S1_ID" "$P1")" 200 "家长查看学生状态"
+expect "$(api POST "/api/insight/evaluate/$S1_ID" "$T1")" 201 "老师触发状态评估"
+expect "$(api GET /api/insight "$S1")" 403 "学生越权看风险名单"
+expect "$(api POST /api/insight/scan "$S1")" 403 "学生越权触发全局扫描"
+
+echo "=== 16. 择校知识库 ==="
+expect "$(api GET /api/admission/schools "$S1")" 200 "学校库查询"
+expect "$(api POST /api/admission/match "$S1" '{"subjects":["物理","化学","生物"]}')" 201 "选科匹配可报专业"
+
 echo ""
 echo "========== RESULT: $PASS passed, $FAIL failed =========="
 [ "$FAIL" -eq 0 ]

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { http } from '@client/src/utils/http';
-import { opsApi } from '@client/src/api';
-import type { OpsGenerateResponse } from '@shared/api.interface';
+import { insightApi, opsApi } from '@client/src/api';
+import type { InsightDTO, OpsGenerateResponse } from '@shared/api.interface';
 import { toast } from 'sonner';
 import { Badge } from '@client/src/components/ui/badge';
 import { Button } from '@client/src/components/ui/button';
@@ -51,6 +51,8 @@ const AdminPage = () => {
   const [opsResult, setOpsResult] = useState<OpsGenerateResponse | null>(null);
   const [opsRunning, setOpsRunning] = useState<boolean>(false);
   const [opsTips, setOpsTips] = useState<{ topic: string; reason: string }[]>([]);
+  // 风险学生
+  const [risks, setRisks] = useState<InsightDTO[]>([]);
 
   const [assignOpen, setAssignOpen] = useState<boolean>(false);
   const [assignForm, setAssignForm] = useState<{
@@ -239,6 +241,67 @@ const AdminPage = () => {
           </Button>
         </div>
       </div>
+
+      <Card>
+        <CardContent className="p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-sm font-medium">风险学生监控（AI 状态洞察）</p>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={async () => {
+                try {
+                  const list = await insightApi.riskList();
+                  setRisks(list);
+                  toast.success(`发现 ${list.length} 名需关注学生`);
+                } catch (error) {
+                  toast.error('获取失败');
+                }
+              }}
+            >
+              刷新风险名单
+            </Button>
+          </div>
+          {risks.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              点击「刷新风险名单」查看 AI 识别的下滑/流失风险学生（基于复习偏离、打卡停滞、任务完成率等多源信号）
+            </p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {risks.map((item) => (
+                <div key={item.id} className="rounded-lg border p-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium">{item.headline}</p>
+                    <Badge
+                      variant={
+                        item.level === 'churning'
+                          ? 'destructive'
+                          : item.level === 'at_risk'
+                            ? 'default'
+                            : 'secondary'
+                      }
+                    >
+                      {item.level === 'churning'
+                        ? '流失预警'
+                        : item.level === 'at_risk'
+                          ? '需关注'
+                          : '下滑'}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {item.evidence.slice(0, 3).join('；')}
+                  </p>
+                  {item.actions.length > 0 ? (
+                    <p className="mt-1 text-xs text-primary">
+                      已执行 {item.actions.length} 个干预动作（通知老师/家长/学生）
+                    </p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Tabs defaultValue="overview">
         <TabsList>

@@ -12,6 +12,9 @@ import type {
   ArticleListResponse,
   AssignRelationRequest,
   CheckinDTO,
+  CompanionMessageDTO,
+  InsightDTO,
+  CompanionSessionDTO,
   CreateCheckinRequest,
   Diagnosis,
   CreateChildRequest,
@@ -243,6 +246,36 @@ export const uploadApi = {
     const response = await http.post('/api/upload/image', form);
     return response.data as { url: string };
   },
+};
+
+export const insightApi = {
+  riskList: (): Promise<InsightDTO[]> =>
+    request({ url: '/api/insight', method: 'GET' }),
+  latestOf: (studentUserId: string): Promise<InsightDTO> =>
+    request({ url: `/api/insight/${studentUserId}`, method: 'GET' }),
+  evaluate: (studentUserId: string): Promise<InsightDTO & { executed: number }> =>
+    request({ url: `/api/insight/evaluate/${studentUserId}`, method: 'POST' }),
+};
+
+export const companionApi = {
+  start: (data: {
+    studentUserId?: string;
+    wrongQuestionId?: string;
+  }): Promise<{ session: CompanionSessionDTO; messages: CompanionMessageDTO[] }> =>
+    request({ url: '/api/companion/start', method: 'POST', data }),
+  send: (
+    sessionId: string,
+    content: string,
+  ): Promise<{ messages: CompanionMessageDTO[]; session: CompanionSessionDTO }> =>
+    request({
+      url: `/api/companion/sessions/${sessionId}/messages`,
+      method: 'POST',
+      data: { content },
+    }),
+  sessions: (studentUserId?: string): Promise<CompanionSessionDTO[]> =>
+    request({ url: '/api/companion/sessions', method: 'GET', params: { studentUserId } }),
+  messages: (sessionId: string): Promise<CompanionMessageDTO[]> =>
+    request({ url: `/api/companion/sessions/${sessionId}`, method: 'GET' }),
 };
 
 export const opsApi = {

@@ -152,6 +152,36 @@ export interface ExplainResult {
   encouragement: string;
 }
 
+export interface InsightDTO {
+  id: string;
+  studentUserId: string;
+  level: string;
+  score: number;
+  headline: string;
+  evidence: string[];
+  actions: { type: string; target: string; message: string }[];
+  executed: boolean;
+  createdAt: string;
+}
+
+export interface CompanionSessionDTO {
+  id: string;
+  studentUserId: string;
+  stage: string;
+  stageLabel: string;
+  status: string;
+  topic: string;
+  createdAt: string;
+}
+
+export interface CompanionMessageDTO {
+  id: string;
+  role: string;
+  content: string;
+  stage: string;
+  createdAt: string;
+}
+
 export interface QuestionBankItem {
   id: string;
   subject: string;

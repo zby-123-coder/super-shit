@@ -65,6 +65,54 @@ export interface HomeworkGradeResult {
   summary: string;
 }
 
+export interface InsightInput {
+  studentName: string;
+  signals: {
+    overdueReviews: number;
+    totalReviews: number;
+    taskDoneRate: number;
+    daysSinceLastCheckin: number;
+    remainingLessons: number;
+    newWrongs14d: number;
+    diagnosisScores: { label: string; score: number }[];
+  };
+}
+
+export interface InsightAction {
+  /** teacher_alert 通知老师 / parent_notice 通知家长 / student_nudge 学生提示 / practice_pack 习题包 / renewal_reminder 续费提醒 */
+  type: string;
+  /** 面向谁 */
+  target: string;
+  /** 可执行文案（通知正文 / 提示语） */
+  message: string;
+}
+
+export interface InsightResult {
+  level: 'on_track' | 'slipping' | 'at_risk' | 'churning';
+  score: number;
+  headline: string;
+  evidence: string[];
+  actions: InsightAction[];
+}
+
+export interface CompanionReplyInput {
+  /** system prompt（人设+阶段+本题信息） */
+  systemPrompt: string;
+  /** 历史（role: user/assistant） */
+  history: { role: 'user' | 'assistant'; content: string }[];
+  /** 学生本轮输入 */
+  message: string;
+  stage: string;
+}
+
+export interface CompanionReplyResult {
+  /** false = 规则版脚本化引导（不假装理解） */
+  available: boolean;
+  reply: string;
+  /** 建议进入的下一阶段（规则版不推进时为 null） */
+  nextStage: string | null;
+}
+
 export interface ExplainInput {
   subject: string;
   title: string;
@@ -153,4 +201,10 @@ export interface AiProvider {
 
   /** 引导式讲题：读题→提示→分步讲解（护栏：不直接给最终答案） */
   explainQuestion(input: ExplainInput): Promise<ExplainResult>;
+
+  /** AI 陪伴对话：带人设与阶段的多轮引导（护栏在 systemPrompt 内） */
+  companionReply(input: CompanionReplyInput): Promise<CompanionReplyResult>;
+
+  /** 学习状态洞察：多源信号 → 状态分级 + 证据 + 决策动作 */
+  insight(input: InsightInput): Promise<InsightResult>;
 }

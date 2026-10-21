@@ -271,3 +271,9 @@ page {
 .bar-i.warn { background: #D97C06; }
 .bar-i.mid { background: #4F5FE8; }
 .rx-item { background: #F7F8FA; border-radius: 10rpx; padding: 16rpx; margin-bottom: 12rpx; }
+
+/* ===== AI 陪练 ===== */
+.companion .chat { background: #fff; border-radius: 16rpx; padding: 20rpx; min-height: 600rpx; }
+.msg { max-width: 78%; padding: 16rpx 20rpx; border-radius: 16rpx; margin-bottom: 16rpx; font-size: 26rpx; line-height: 1.6; word-break: break-word; }
+.msg-ai { background: #F0F2F5; color: #1F2329; }
+.msg-user { background: #4F5FE8; color: #FFFFFF; margin-left: auto; }

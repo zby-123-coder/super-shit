@@ -13,6 +13,7 @@ import { Input } from '@client/src/components/ui/input';
 import { Textarea } from '@client/src/components/ui/textarea';
 import { EmptyBlock, LoadingBlock } from '@client/src/components/PageShell';
 import { aiApi, questionBankApi, wrongQuestionApi } from '@client/src/api';
+import CompanionDialog from '@client/src/components/CompanionDialog';
 import { useAccount } from '@client/src/hooks/useAccount';
 import { generateVariant } from '@client/src/utils/variant';
 import type {
@@ -51,6 +52,9 @@ const WrongQuestionBook = () => {
   const [explain, setExplain] = useState<ExplainResult | null>(null);
   const [explaining, setExplaining] = useState<boolean>(false);
   const [showDetail, setShowDetail] = useState<boolean>(false);
+  // AI 陪伴
+  const [companionOpen, setCompanionOpen] = useState<boolean>(false);
+  const [companionWqId, setCompanionWqId] = useState<string | undefined>(undefined);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -181,6 +185,16 @@ const WrongQuestionBook = () => {
               }}
             >
               {recommending ? '推荐中…' : '举一反三'}
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                setCompanionWqId(item.id);
+                setCompanionOpen(true);
+              }}
+            >
+              小引陪练
             </Button>
             <Button
               size="sm"
@@ -318,6 +332,12 @@ const WrongQuestionBook = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <CompanionDialog
+        open={companionOpen}
+        onOpenChange={setCompanionOpen}
+        wrongQuestionId={companionWqId}
+      />
 
       <Dialog
         open={!!explain}

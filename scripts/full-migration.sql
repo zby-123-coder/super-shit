@@ -29,6 +29,8 @@ DROP INDEX IF EXISTS public.uk_auth_credential_user;
 DROP INDEX IF EXISTS public.uk_auth_credential_login;
 DROP INDEX IF EXISTS public.uk_app_profile_user;
 DROP INDEX IF EXISTS public.uk_app_profile_invite;
+DROP INDEX IF EXISTS public.uk_admission_school;
+DROP INDEX IF EXISTS public.uk_admission_major;
 DROP INDEX IF EXISTS public.idx_wq_student;
 DROP INDEX IF EXISTS public.idx_wq_review;
 DROP INDEX IF EXISTS public.idx_task_teacher;
@@ -37,17 +39,21 @@ DROP INDEX IF EXISTS public.idx_qb_kp;
 DROP INDEX IF EXISTS public.idx_profile_family;
 DROP INDEX IF EXISTS public.idx_message_user;
 DROP INDEX IF EXISTS public.idx_ledger_student;
+DROP INDEX IF EXISTS public.idx_insight_student;
 DROP INDEX IF EXISTS public.idx_course_teacher;
 DROP INDEX IF EXISTS public.idx_course_student;
 DROP INDEX IF EXISTS public.idx_checkin_task;
 DROP INDEX IF EXISTS public.idx_checkin_student;
 DROP INDEX IF EXISTS public.idx_auth_session_user;
 DROP INDEX IF EXISTS public.idx_article_column;
+DROP INDEX IF EXISTS public.idx_ai_session_student;
+DROP INDEX IF EXISTS public.idx_ai_message_session;
 ALTER TABLE IF EXISTS ONLY public.wrong_question DROP CONSTRAINT IF EXISTS wrong_question_pkey;
 ALTER TABLE IF EXISTS ONLY public.teaching_link DROP CONSTRAINT IF EXISTS teaching_link_pkey;
 ALTER TABLE IF EXISTS ONLY public.task_checkin DROP CONSTRAINT IF EXISTS task_checkin_pkey;
 ALTER TABLE IF EXISTS ONLY public.study_task DROP CONSTRAINT IF EXISTS study_task_pkey;
 ALTER TABLE IF EXISTS ONLY public.study_progress DROP CONSTRAINT IF EXISTS study_progress_pkey;
+ALTER TABLE IF EXISTS ONLY public.student_insight DROP CONSTRAINT IF EXISTS student_insight_pkey;
 ALTER TABLE IF EXISTS ONLY public.question_bank DROP CONSTRAINT IF EXISTS question_bank_pkey;
 ALTER TABLE IF EXISTS ONLY public.notice_message DROP CONSTRAINT IF EXISTS notice_message_pkey;
 ALTER TABLE IF EXISTS ONLY public.lesson_ledger DROP CONSTRAINT IF EXISTS lesson_ledger_pkey;
@@ -60,11 +66,16 @@ ALTER TABLE IF EXISTS ONLY public.auth_credential DROP CONSTRAINT IF EXISTS auth
 ALTER TABLE IF EXISTS ONLY public.article DROP CONSTRAINT IF EXISTS article_pkey;
 ALTER TABLE IF EXISTS ONLY public.article_favorite DROP CONSTRAINT IF EXISTS article_favorite_pkey;
 ALTER TABLE IF EXISTS ONLY public.app_profile DROP CONSTRAINT IF EXISTS app_profile_pkey;
+ALTER TABLE IF EXISTS ONLY public.ai_session DROP CONSTRAINT IF EXISTS ai_session_pkey;
+ALTER TABLE IF EXISTS ONLY public.ai_message DROP CONSTRAINT IF EXISTS ai_message_pkey;
+ALTER TABLE IF EXISTS ONLY public.admission_school DROP CONSTRAINT IF EXISTS admission_school_pkey;
+ALTER TABLE IF EXISTS ONLY public.admission_major DROP CONSTRAINT IF EXISTS admission_major_pkey;
 DROP TABLE IF EXISTS public.wrong_question;
 DROP TABLE IF EXISTS public.teaching_link;
 DROP TABLE IF EXISTS public.task_checkin;
 DROP TABLE IF EXISTS public.study_task;
 DROP TABLE IF EXISTS public.study_progress;
+DROP TABLE IF EXISTS public.student_insight;
 DROP TABLE IF EXISTS public.question_bank;
 DROP TABLE IF EXISTS public.notice_message;
 DROP TABLE IF EXISTS public.lesson_ledger;
@@ -77,9 +88,87 @@ DROP TABLE IF EXISTS public.auth_credential;
 DROP TABLE IF EXISTS public.article_favorite;
 DROP TABLE IF EXISTS public.article;
 DROP TABLE IF EXISTS public.app_profile;
+DROP TABLE IF EXISTS public.ai_session;
+DROP TABLE IF EXISTS public.ai_message;
+DROP TABLE IF EXISTS public.admission_school;
+DROP TABLE IF EXISTS public.admission_major;
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
+
+--
+-- Name: admission_major; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.admission_major (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    name character varying(128) NOT NULL,
+    category character varying(64),
+    required_subjects text[],
+    optional_subjects text[],
+    employment text[],
+    intro text,
+    _created_at timestamp with time zone DEFAULT now() NOT NULL,
+    _created_by character varying(64),
+    _updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    _updated_by character varying(64)
+);
+
+
+--
+-- Name: admission_school; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.admission_school (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    name character varying(128) NOT NULL,
+    city character varying(64),
+    province character varying(64),
+    level character varying(64),
+    tags text[],
+    intro text,
+    _created_at timestamp with time zone DEFAULT now() NOT NULL,
+    _created_by character varying(64),
+    _updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    _updated_by character varying(64)
+);
+
+
+--
+-- Name: ai_message; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.ai_message (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    session_id uuid NOT NULL,
+    role character varying(16) NOT NULL,
+    content text NOT NULL,
+    stage_at_time character varying(32),
+    _created_at timestamp with time zone DEFAULT now() NOT NULL,
+    _created_by character varying(64),
+    _updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    _updated_by character varying(64)
+);
+
+
+--
+-- Name: ai_session; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.ai_session (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    student_user_id character varying(64) NOT NULL,
+    wrong_question_id uuid,
+    persona_id character varying(32) DEFAULT 'guide'::character varying NOT NULL,
+    stage character varying(32) DEFAULT 'understand'::character varying NOT NULL,
+    status character varying(16) DEFAULT 'active'::character varying NOT NULL,
+    topic character varying(255),
+    _created_at timestamp with time zone DEFAULT now() NOT NULL,
+    _created_by character varying(64),
+    _updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    _updated_by character varying(64)
+);
+
 
 --
 -- Name: app_profile; Type: TABLE; Schema: public; Owner: -
@@ -314,6 +403,27 @@ CREATE TABLE public.question_bank (
 
 
 --
+-- Name: student_insight; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.student_insight (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    student_user_id character varying(64) NOT NULL,
+    level character varying(16) NOT NULL,
+    score integer DEFAULT 0 NOT NULL,
+    signals jsonb DEFAULT '{}'::jsonb NOT NULL,
+    headline character varying(500),
+    evidence jsonb DEFAULT '[]'::jsonb NOT NULL,
+    actions jsonb DEFAULT '[]'::jsonb NOT NULL,
+    executed boolean DEFAULT false NOT NULL,
+    _created_at timestamp with time zone DEFAULT now() NOT NULL,
+    _created_by character varying(64),
+    _updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    _updated_by character varying(64)
+);
+
+
+--
 -- Name: study_progress; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -415,6 +525,38 @@ CREATE TABLE public.wrong_question (
 
 
 --
+-- Name: admission_major admission_major_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.admission_major
+    ADD CONSTRAINT admission_major_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: admission_school admission_school_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.admission_school
+    ADD CONSTRAINT admission_school_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: ai_message ai_message_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ai_message
+    ADD CONSTRAINT ai_message_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: ai_session ai_session_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ai_session
+    ADD CONSTRAINT ai_session_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: app_profile app_profile_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -511,6 +653,14 @@ ALTER TABLE ONLY public.question_bank
 
 
 --
+-- Name: student_insight student_insight_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.student_insight
+    ADD CONSTRAINT student_insight_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: study_progress study_progress_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -548,6 +698,20 @@ ALTER TABLE ONLY public.teaching_link
 
 ALTER TABLE ONLY public.wrong_question
     ADD CONSTRAINT wrong_question_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: idx_ai_message_session; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ai_message_session ON public.ai_message USING btree (session_id, _created_at);
+
+
+--
+-- Name: idx_ai_session_student; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ai_session_student ON public.ai_session USING btree (student_user_id, _created_at);
 
 
 --
@@ -590,6 +754,13 @@ CREATE INDEX idx_course_student ON public.course USING btree (student_user_id, s
 --
 
 CREATE INDEX idx_course_teacher ON public.course USING btree (teacher_user_id, start_at);
+
+
+--
+-- Name: idx_insight_student; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_insight_student ON public.student_insight USING btree (student_user_id, _created_at DESC);
 
 
 --
@@ -646,6 +817,20 @@ CREATE INDEX idx_wq_review ON public.wrong_question USING btree (next_review_at)
 --
 
 CREATE INDEX idx_wq_student ON public.wrong_question USING btree (student_user_id, _created_at);
+
+
+--
+-- Name: uk_admission_major; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX uk_admission_major ON public.admission_major USING btree (name);
+
+
+--
+-- Name: uk_admission_school; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX uk_admission_school ON public.admission_school USING btree (name);
 
 
 --
@@ -736,5 +921,5 @@ CREATE UNIQUE INDEX uk_teaching_pair ON public.teaching_link USING btree (teache
 -- PostgreSQL database dump complete
 --
 
-\unrestrict a3YAZcc7IthZuS8fGGT0sbquYLAcJ5rKcSnjzfn1Fx4bdpqyYJH5V9ahQHm0Cg9
+\unrestrict fnqhWyc1BKqXsTaBmTFBbBpayuMlhgKdxNraTfmPllmuU7dC06J12FBmBcfIqKq
 

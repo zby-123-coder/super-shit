@@ -1,6 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type {
   AiProvider,
+  CompanionReplyInput,
+  CompanionReplyResult,
+  InsightInput,
+  InsightResult,
   DiagnoseInput,
   DiagnoseResult,
   ExplainInput,
@@ -249,6 +253,84 @@ export class LlmAiProvider implements AiProvider {
     } catch {
       return { available: true, steps: [], similarTip: '', encouragement: text.slice(0, 100) };
     }
+  }
+
+  /**
+   * AI 陪伴：人设 system prompt + 多轮历史 + 阶段指令。
+   * 阶段推进由模型判断（返回 nextStage），服务端负责校验与落库。
+   */
+  async companionReply(input: CompanionReplyInput): Promise<CompanionReplyResult> {
+    const messages: { role: string; content: string }[] = [
+      { role: 'system', content: input.systemPrompt },
+      ...input.history.slice(-12),
+      { role: 'user', content: input.message },
+    ];
+    const res = await fetch(`${this.baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: this.model,
+        messages,
+        temperature: 0.5,
+        max_tokens: 400,
+      }),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      this.logger.error(`陪伴对话失败 ${res.status}: ${text.slice(0, 200)}`);
+      throw new Error(`LLM ${res.status}`);
+    }
+    const data = (await res.json()) as {
+      choices?: { message?: { content?: string } }[];
+    };
+    const reply = data.choices?.[0]?.message?.content?.trim() ?? '';
+    // 阶段推进：模型在回复末尾附带 [STAGE:xxx] 标记（可选）
+    const match = reply.match(/\[STAGE:(understand|guide|consolidate|close)\]/);
+    return {
+      available: true,
+      reply: reply.replace(/\[STAGE:[a-z]+\]/g, '').trim(),
+      nextStage: match ? match[1] : null,
+    };
+  }
+
+  /**
+   * LLM 状态洞察：在规则信号基础上做归因与话术个性化。
+   * 安全设计：level 由模型建议但服务端会与规则判定交叉校验（AI 不得单独降级风险）。
+   */
+  async insight(input: InsightInput): Promise<InsightResult> {
+    const text = await this.chat(
+      '你是家教机构的学习顾问，负责识别学生学习状态异常并给出干预动作。' +
+        '基于多源信号判断状态（on_track/slipping/at_risk/churning），输出：' +
+        'headline（一句话结论）、evidence（3条以内证据，引用具体数值）、' +
+        'actions（2-4 条可执行动作，type 取 teacher_alert/parent_notice/student_nudge/practice_pack/renewal_reminder，' +
+        'message 写成可直接发送的中文通知，具体可执行、不空泛）。严格输出 JSON：' +
+        '{"level":"...","score":0-100,"headline":"...","evidence":["..."],' +
+        '"actions":[{"type":"...","target":"teacher|parent|student","message":"..."}]}',
+      `学生：${input.studentName}\n信号：${JSON.stringify(input.signals)}`,
+    );
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}');
+    if (start < 0 || end <= start) {
+      throw new Error('LLM 洞察输出无法解析');
+    }
+    const parsed = JSON.parse(text.slice(start, end + 1)) as InsightResult;
+    const levels = ['on_track', 'slipping', 'at_risk', 'churning'];
+    return {
+      level: levels.includes(parsed.level) ? parsed.level : 'slipping',
+      score: Math.max(0, Math.min(100, Number(parsed.score ?? 0))),
+      headline: String(parsed.headline ?? ''),
+      evidence: Array.isArray(parsed.evidence) ? parsed.evidence.map(String).slice(0, 4) : [],
+      actions: Array.isArray(parsed.actions)
+        ? parsed.actions.slice(0, 5).map((action) => ({
+            type: String(action.type ?? 'teacher_alert'),
+            target: String(action.target ?? 'teacher'),
+            message: String(action.message ?? ''),
+          }))
+        : [],
+    };
   }
 
   async variant(input: VariantInput): Promise<string | null> {

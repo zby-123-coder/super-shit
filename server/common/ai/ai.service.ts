@@ -3,6 +3,10 @@ import { LlmAiProvider } from './llm-ai.provider';
 import { RuleAiProvider } from './rule-ai.provider';
 import type {
   AiProvider,
+  CompanionReplyInput,
+  CompanionReplyResult,
+  InsightInput,
+  InsightResult,
   DiagnoseInput,
   DiagnoseResult,
   ExplainInput,
@@ -98,6 +102,20 @@ export class AiService {
     return this.run(
       (p) => p.explainQuestion(input),
       (p) => p.explainQuestion(input),
+    );
+  }
+
+  companionReply(input: CompanionReplyInput): Promise<CompanionReplyResult> {
+    return this.run(
+      (p) => p.companionReply(input),
+      (p) => p.companionReply(input),
+    );
+  }
+
+  insight(input: InsightInput): Promise<InsightResult> {
+    return this.run(
+      (p) => p.insight(input),
+      (p) => p.insight(input),
     );
   }
 }

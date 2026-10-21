@@ -1,7 +1,7 @@
 /* eslint-disable */
 /** auto generated, do not edit */
 import { sql } from 'drizzle-orm';
-import { boolean, index, integer, pgTable, text, uniqueIndex, uuid, varchar, customType } from "drizzle-orm/pg-core"
+import { boolean, index, integer, jsonb, pgTable, text, uniqueIndex, uuid, varchar, customType } from "drizzle-orm/pg-core"
 
 export const customTimestamptz = customType<{
   data: Date;
@@ -491,6 +491,82 @@ export const questionBank = pgTable("question_bank", {
 }, (table) => [
   index("idx_qb_kp").on(table.subject, table.knowledgePoint),
 ]);
+
+export const aiSession = pgTable("ai_session", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  studentUserId: varchar("student_user_id", { length: 64 }).notNull(),
+  wrongQuestionId: uuid("wrong_question_id"),
+  personaId: varchar("persona_id", { length: 32 }).notNull().default('guide'),
+  stage: varchar("stage", { length: 32 }).notNull().default('understand'),
+  status: varchar("status", { length: 16 }).notNull().default('active'),
+  topic: varchar("topic", { length: 255 }),
+  createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  createdBy: varchar("_created_by", { length: 64 }),
+  updatedAt: customTimestamptz("_updated_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedBy: varchar("_updated_by", { length: 64 }),
+}, (table) => [
+  index("idx_ai_session_student").on(table.studentUserId, table.createdAt),
+]);
+
+export const aiMessage = pgTable("ai_message", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sessionId: uuid("session_id").notNull(),
+  role: varchar("role", { length: 16 }).notNull(),
+  content: text("content").notNull(),
+  stageAtTime: varchar("stage_at_time", { length: 32 }),
+  createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  createdBy: varchar("_created_by", { length: 64 }),
+  updatedAt: customTimestamptz("_updated_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedBy: varchar("_updated_by", { length: 64 }),
+}, (table) => [
+  index("idx_ai_message_session").on(table.sessionId, table.createdAt),
+]);
+
+export const studentInsight = pgTable("student_insight", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  studentUserId: varchar("student_user_id", { length: 64 }).notNull(),
+  level: varchar("level", { length: 16 }).notNull(),
+  score: integer("score").notNull().default(0),
+  signals: jsonb("signals").notNull().default(sql`'{}'::jsonb`),
+  headline: varchar("headline", { length: 500 }),
+  evidence: jsonb("evidence").notNull().default(sql`'[]'::jsonb`),
+  actions: jsonb("actions").notNull().default(sql`'[]'::jsonb`),
+  executed: boolean("executed").notNull().default(false),
+  createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  createdBy: varchar("_created_by", { length: 64 }),
+  updatedAt: customTimestamptz("_updated_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedBy: varchar("_updated_by", { length: 64 }),
+}, (table) => [
+  index("idx_insight_student").on(table.studentUserId, table.createdAt),
+]);
+
+export const admissionSchool = pgTable("admission_school", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: varchar("name", { length: 128 }).notNull(),
+  city: varchar("city", { length: 64 }),
+  province: varchar("province", { length: 64 }),
+  level: varchar("level", { length: 64 }),
+  tags: text("tags").array(),
+  intro: text("intro"),
+  createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  createdBy: varchar("_created_by", { length: 64 }),
+  updatedAt: customTimestamptz("_updated_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedBy: varchar("_updated_by", { length: 64 }),
+}, (table) => [uniqueIndex("uk_admission_school").on(table.name)]);
+
+export const admissionMajor = pgTable("admission_major", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: varchar("name", { length: 128 }).notNull(),
+  category: varchar("category", { length: 64 }),
+  requiredSubjects: text("required_subjects").array(),
+  optionalSubjects: text("optional_subjects").array(),
+  employment: text("employment").array(),
+  intro: text("intro"),
+  createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  createdBy: varchar("_created_by", { length: 64 }),
+  updatedAt: customTimestamptz("_updated_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedBy: varchar("_updated_by", { length: 64 }),
+}, (table) => [uniqueIndex("uk_admission_major").on(table.name)]);
 
 // table aliases
 export const appProfileTable = appProfile;
