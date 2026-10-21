@@ -585,6 +585,8 @@ export const aiInvocationLog = pgTable("ai_invocation_log", {
   status: varchar("status", { length: 16 }).notNull().default('success'),
   latencyMs: integer("latency_ms"),
   resultPreview: text("result_preview"),
+  /** 完整结果快照（前端可回看本次调用的完整输出） */
+  resultFull: text("result_full"),
   createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [
   index("idx_ai_log_user").on(table.userId, table.createdAt),

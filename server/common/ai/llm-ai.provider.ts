@@ -29,9 +29,14 @@ import type {
  * DeepSeek 示例（OpenAI 兼容协议，直接可用）：
  *   AI_API_KEY=sk-xxxx
  *   AI_BASE_URL=https://api.deepseek.com
- *   AI_MODEL=deepseek-chat
- *   # deepseek-chat 不支持图片输入，识图批改需另配多模态模型（不配则该项诚实降级）：
- *   AI_VISION_MODEL=qwen-vl-plus
+ *   AI_MODEL=deepseek-flash
+ *
+ *   # deepseek-flash 即 DeepSeek 的视觉模型（2026-10 官方文档确认）：
+ *   #   - 支持 JPEG/PNG/GIF/WebP，请求体 ≤48MiB，单请求最多 600 张
+ *   #   - 图片只能放在 user 消息的 content 数组（{type:'image_url', image_url:{url}}）
+ *   #   - 每张图自动缩放到 ~1300×1300，token 上限 1024/张
+ *   # deepseek-chat 等纯文本模型不支持图片输入，识图批改会诚实降级；
+ *   # 此时可另配 AI_VISION_MODEL 指向任意多模态模型启用识图。
  *
  * 未配置 AI_API_KEY 时 AiService 不会实例化本类，业务无感降级到规则版。
  * 请求/响应格式如与你的服务不一致，只改本文件的 chat() 即可。
@@ -44,14 +49,15 @@ export class LlmAiProvider implements AiProvider {
   private readonly model = process.env.AI_MODEL ?? 'gpt-4o-mini';
   /** 识图批改专用模型（多模态）；未配置时默认用主模型 */
   private readonly visionModel = process.env.AI_VISION_MODEL ?? '';
-  /** 已知不支持图片输入的纯文本模型：跳过请求，直接诚实降级 */
+  /**
+   * 已知不支持图片输入的纯文本模型：跳过请求，直接诚实降级。
+   * 注意：deepseek-flash 是 DeepSeek 的视觉模型（官方文档 2026-10），**不在**此名单。
+   */
   private static readonly TEXT_ONLY_MODELS = new Set([
     'deepseek-chat',
     'deepseek-reasoner',
-    'deepseek-flash',
     'deepseek-r1',
     'deepseek-v3',
-    'deepseek-v4.1-flash',
   ]);
 
   private async chat(system: string, user: string): Promise<string> {
@@ -102,9 +108,21 @@ export class LlmAiProvider implements AiProvider {
   }
 
   async gradeHomework(input: HomeworkGradeInput): Promise<HomeworkGradeResult> {
+    // 分支一：没有图片 → 走纯文本 chat（基于学生自述给批改建议，不发起视觉请求）
     if (input.images.length === 0) {
-      return { available: true, items: [], summary: '该打卡没有上传图片，无需识图批改。' };
+      const text = await this.chat(
+        '你是负责作业批改的老师。学生没有上传作业图片，只有文字自述。' +
+          '请根据自述判断完成情况，给出简短批改建议与下一步动作，80 字以内，语气温和。' +
+          '不要编造具体题目内容。',
+        `科目：${input.subject}\n任务：${input.taskTitle}\n学生自述：${input.content || '（无自述）'}`,
+      );
+      return {
+        available: true,
+        items: [],
+        summary: text || '该打卡没有上传图片，已根据文字自述给出建议。',
+      };
     }
+    // 分支二：有图片 → 固定格式视觉请求（content 数组：text + image_url）
     // 视觉模型边界：deepseek-chat 等纯文本模型不支持 image_url，直接诚实降级，
     // 不浪费一次注定失败的调用；用户可通过 AI_VISION_MODEL 单独配多模态模型。
     const visionModel = this.visionModel || this.model;

@@ -3,6 +3,7 @@ import { IsNumber, IsOptional, IsString, MaxLength } from 'class-validator';
 import type { Request } from 'express';
 import { AiService } from '@server/common/ai/ai.service';
 import { AiInvocationService } from './ai-invocation.service';
+import { AiIdempotencyService } from './ai-idempotency.service';
 import { DRIZZLE_DATABASE, type PostgresJsDatabase } from '@server/common/drizzle';
 import { Inject } from '@nestjs/common';
 import { studyTask, taskCheckin } from '@server/database/schema';
@@ -72,6 +73,7 @@ export class AiController {
     private readonly storageService: StorageService,
     private readonly accountService: AccountService,
     private readonly invocationService: AiInvocationService,
+    private readonly idempotency: AiIdempotencyService,
   ) {}
 
   /** 当前生效的 AI 提供方（前端可据此提示"AI 已接入/使用规则版"） */
@@ -94,16 +96,22 @@ export class AiController {
   async reviewDraft(@Req() req: Request, @Body() dto: ReviewDraftDto) {
     const { userId, role } = req.userContext;
     const started = Date.now();
-    const draft = await this.aiService.reviewDraft({
-      content: dto.content,
-      durationMin: dto.durationMin ?? 0,
-      taskTitle: dto.taskTitle,
-    });
+    const { result: draft, deduped } = await this.idempotency.run(
+      userId,
+      'review_draft',
+      () =>
+        this.aiService.reviewDraft({
+          content: dto.content,
+          durationMin: dto.durationMin ?? 0,
+          taskTitle: dto.taskTitle,
+        }),
+      { scopeId: dto.taskTitle },
+    );
     const callId = await this.invocationService.record(
       { userId, role, feature: 'review_draft', scopeType: 'task_title', scopeId: dto.taskTitle },
-      { provider: this.aiService.providerName, status: 'success', latencyMs: Date.now() - started, preview: draft },
+      { provider: this.aiService.providerName, status: 'success', latencyMs: Date.now() - started, preview: draft, full: { draft } },
     );
-    return { draft, callId };
+    return { draft, callId, deduped };
   }
 
   /**
@@ -114,13 +122,19 @@ export class AiController {
   async explain(@Req() req: Request, @Body() dto: ExplainDto) {
     const { userId, role } = req.userContext;
     const started = Date.now();
-    const result = await this.aiService.explainQuestion({
-      subject: dto.subject,
-      title: dto.title,
-      knowledgePoint: dto.knowledgePoint,
-      wrongReason: dto.wrongReason,
-      studentAnswer: dto.studentAnswer,
-    });
+    const { result, deduped } = await this.idempotency.run(
+      userId,
+      'explain',
+      () =>
+        this.aiService.explainQuestion({
+          subject: dto.subject,
+          title: dto.title,
+          knowledgePoint: dto.knowledgePoint,
+          wrongReason: dto.wrongReason,
+          studentAnswer: dto.studentAnswer,
+        }),
+      { scopeId: `${dto.subject}:${dto.title}` },
+    );
     const callId = await this.invocationService.record(
       {
         userId,
@@ -134,25 +148,32 @@ export class AiController {
         status: result.available ? 'success' : 'degraded',
         latencyMs: Date.now() - started,
         preview: result.steps?.[0]?.text,
+        full: result,
       },
     );
-    return { ...result, callId };
+    return { ...result, callId, deduped };
   }
 
   @Post('variant')
   async variant(@Req() req: Request, @Body() dto: VariantDto) {
     const { userId, role } = req.userContext;
     const started = Date.now();
-    const variant = await this.aiService.variant({
-      subject: dto.subject,
-      title: dto.title,
-      knowledgePoint: dto.knowledgePoint,
-    });
+    const { result: variant, deduped } = await this.idempotency.run(
+      userId,
+      'variant',
+      () =>
+        this.aiService.variant({
+          subject: dto.subject,
+          title: dto.title,
+          knowledgePoint: dto.knowledgePoint,
+        }),
+      { scopeId: dto.title },
+    );
     const callId = await this.invocationService.record(
       { userId, role, feature: 'variant', scopeType: 'question', scopeId: dto.title.slice(0, 200) },
-      { provider: this.aiService.providerName, status: 'success', latencyMs: Date.now() - started, preview: variant ?? undefined },
+      { provider: this.aiService.providerName, status: 'success', latencyMs: Date.now() - started, preview: variant ?? undefined, full: { variant } },
     );
-    return { variant, callId };
+    return { variant, callId, deduped };
   }
 
   /**
@@ -179,10 +200,11 @@ export class AiController {
       }
     }
     // 取该任务最近一次带图片的打卡
+    // 注意：按任务的归属学生查，而不是按调用者（老师/admin）——否则永远查不到学生的打卡
     const checkins = await this.db
       .select()
       .from(taskCheckin)
-      .where(and(eq(taskCheckin.taskId, taskId), eq(taskCheckin.studentUserId, userId)))
+      .where(and(eq(taskCheckin.taskId, taskId), eq(taskCheckin.studentUserId, taskRow.studentUserId)))
       .orderBy(desc(taskCheckin.createdAt))
       .limit(1);
     const checkin = checkins[0];
@@ -206,12 +228,18 @@ export class AiController {
       .limit(1);
     const taskInfo = tasks[0];
     const started = Date.now();
-    const result = await this.aiService.gradeHomework({
-      subject: taskInfo?.subject ?? '未指定',
-      taskTitle: taskInfo?.title ?? `任务 ${taskId.slice(0, 8)}`,
-      images,
-      content: checkin.content ?? '',
-    });
+    const { result, deduped } = await this.idempotency.run(
+      userId,
+      'grade_homework',
+      () =>
+        this.aiService.gradeHomework({
+          subject: taskInfo?.subject ?? '未指定',
+          taskTitle: taskInfo?.title ?? `任务 ${taskId.slice(0, 8)}`,
+          images,
+          content: checkin.content ?? '',
+        }),
+      { scopeId: taskId },
+    );
     const callId = await this.invocationService.record(
       { userId, role, feature: 'grade_homework', scopeType: 'task', scopeId: taskId },
       {
@@ -219,8 +247,9 @@ export class AiController {
         status: result.available ? 'success' : 'degraded',
         latencyMs: Date.now() - started,
         preview: result.summary,
+        full: result,
       },
     );
-    return { ...result, callId };
+    return { ...result, callId, deduped };
   }
 }

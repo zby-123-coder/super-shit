@@ -12,6 +12,8 @@ export interface AiCacheEntry<T = unknown> {
   callId: string | null;
   /** 缓存写入时间 */
   at: number;
+  /** 过期时间（at + ttl）；null = 永不过期 */
+  expiresAt: number | null;
   feature: string;
   scopeId: string;
   provider: string;
@@ -29,6 +31,20 @@ export interface AiHistoryItem {
 const NS = 'jj_ai_v1';
 const HISTORY_LIMIT = 30;
 
+/**
+ * 各功能缓存 TTL（毫秒）。
+ * 诊断类数据随时间过期快；讲题/知识类内容稳定可放久一些。
+ */
+export const AI_CACHE_TTL: Record<string, number> = {
+  diagnosis: 24 * 3600 * 1000, // 学情诊断：1 天
+  weekly: 24 * 3600 * 1000, // 周报：1 天
+  explain: 7 * 24 * 3600 * 1000, // 错题讲解：7 天
+  review_draft: 7 * 24 * 3600 * 1000, // 批阅评语：7 天
+  variant: 30 * 24 * 3600 * 1000, // 变式题：30 天
+  grade_homework: 7 * 24 * 3600 * 1000, // 识图批改：7 天
+};
+export const DEFAULT_AI_CACHE_TTL = 24 * 3600 * 1000;
+
 const cacheKey = (userId: string, feature: string, scopeId: string) =>
   `${NS}:cache:${userId}:${feature}:${scopeId || '-'}`;
 
@@ -38,6 +54,21 @@ const historyKey = (userId: string) => `${NS}:history:${userId}`;
 export const cacheOwner = (userId?: string | null): string => userId || 'anonymous';
 
 export function readAiCache<T>(userId: string, feature: string, scopeId = ''): AiCacheEntry<T> | null {
+  try {
+    const raw = window.localStorage.getItem(cacheKey(userId, feature, scopeId));
+    if (!raw) return null;
+    const entry = JSON.parse(raw) as AiCacheEntry<T>;
+    // TTL 过期：视为无缓存（旧版本无 expiresAt 字段时按默认 TTL 兼容处理）
+    const expiresAt = entry.expiresAt ?? entry.at + DEFAULT_AI_CACHE_TTL;
+    if (Date.now() > expiresAt) return null;
+    return entry;
+  } catch {
+    return null;
+  }
+}
+
+/** 读原始缓存条目（不做 TTL 过滤，供上层判断"存在但已过期"） */
+export function readAiCacheRaw<T>(userId: string, feature: string, scopeId = ''): AiCacheEntry<T> | null {
   try {
     const raw = window.localStorage.getItem(cacheKey(userId, feature, scopeId));
     return raw ? (JSON.parse(raw) as AiCacheEntry<T>) : null;
@@ -52,9 +83,11 @@ export function writeAiCache<T>(
   scopeId: string,
   payload: { callId?: string | null; provider?: string; data: T },
 ): AiCacheEntry<T> {
+  const ttl = AI_CACHE_TTL[feature] ?? DEFAULT_AI_CACHE_TTL;
   const entry: AiCacheEntry<T> = {
     callId: payload.callId ?? null,
     at: Date.now(),
+    expiresAt: Date.now() + ttl,
     feature,
     scopeId,
     provider: payload.provider ?? 'unknown',

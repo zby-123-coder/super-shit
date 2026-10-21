@@ -382,6 +382,7 @@ const WrongQuestionBook = () => {
               <AiActionBar
                 loading={explaining}
                 hasCache={explainCachedAt !== null}
+                stale={explainCachedAt !== null && Date.now() - explainCachedAt > 7 * 24 * 3600 * 1000}
                 cachedAt={explainCachedAt}
                 label="生成讲解"
                 reloadLabel="重新生成讲解"

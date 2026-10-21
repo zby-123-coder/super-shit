@@ -207,6 +207,8 @@ export interface AiInvocationLogDTO {
   status: string;
   latencyMs: number;
   preview: string;
+  /** 完整结果快照（JSON 字符串，可回看本次完整输出） */
+  full: string;
   createdAt: string;
 }
 

@@ -3,6 +3,16 @@ import { and, desc, eq } from 'drizzle-orm';
 import { DRIZZLE_DATABASE, type PostgresJsDatabase } from '@server/common/drizzle';
 import { aiInvocationLog } from '@server/database/schema';
 
+/** 安全序列化（循环引用/超长截断都不该影响主流程） */
+function safeSerialize(value: unknown): string {
+  try {
+    const text = JSON.stringify(value);
+    return text.length > 20000 ? `${text.slice(0, 20000)}…（已截断）` : text;
+  } catch {
+    return String(value).slice(0, 20000);
+  }
+}
+
 export interface InvocationMeta {
   userId: string;
   role?: string;
@@ -28,7 +38,14 @@ export class AiInvocationService {
   /** 写一条调用日志；失败不影响主流程（不能因为日志挂掉业务） */
   async record(
     meta: InvocationMeta,
-    extra: { provider: string; status: 'success' | 'degraded' | 'failed'; latencyMs: number; preview?: string },
+    extra: {
+      provider: string;
+      status: 'success' | 'degraded' | 'failed';
+      latencyMs: number;
+      preview?: string;
+      /** 完整结果（供回看）；不传则只存摘要 */
+      full?: unknown;
+    },
   ) {
     try {
       const [row] = await this.db
@@ -43,6 +60,7 @@ export class AiInvocationService {
           status: extra.status,
           latencyMs: extra.latencyMs,
           resultPreview: extra.preview?.slice(0, 500),
+          resultFull: extra.full === undefined ? null : safeSerialize(extra.full),
         })
         .returning({ callId: aiInvocationLog.callId });
       return row?.callId ?? null;
@@ -71,6 +89,8 @@ export class AiInvocationService {
       status: row.status,
       latencyMs: row.latencyMs ?? 0,
       preview: row.resultPreview ?? '',
+      /** 完整结果（可回看本次 AI 的完整输出） */
+      full: row.resultFull ?? '',
       createdAt: row.createdAt,
     }));
   }

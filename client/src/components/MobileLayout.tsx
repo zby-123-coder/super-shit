@@ -27,6 +27,7 @@ const BASE_TABS = {
     ['home', '🏠', '首页'],
     ['schedule', '📅', '课表'],
     ['tasks', '✅', '学情'],
+    ['companion', '🤖', '小引'],
     ['lessons', '⏱', '课时'],
     ['content', '📖', '发现'],
     ['me', '👤', '我的'],

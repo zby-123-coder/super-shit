@@ -6,6 +6,13 @@ import { EmptyBlock, PageHeader } from '@client/src/components/PageShell';
 import { Card, CardContent } from '@client/src/components/ui/card';
 import { Button } from '@client/src/components/ui/button';
 import { Input } from '@client/src/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@client/src/components/ui/select';
 import { companionApi, wrongQuestionApi } from '@client/src/api';
 import { useAccount } from '@client/src/hooks/useAccount';
 import { formatAiTime } from '@client/src/utils/ai-cache';
@@ -40,7 +47,12 @@ const CompanionPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const targetQuestionId = searchParams.get('wq') ?? '';
 
-  const studentUserId = account?.profile?.userId ?? '';
+  const role = account?.profile?.role ?? 'student';
+  const isParent = role === 'parent';
+  const children = account?.students ?? [];
+  // 学生看自己；家长看选中的孩子（后端已校验只能看自己孩子）
+  const [selectedChild, setSelectedChild] = useState('');
+  const studentUserId = isParent ? selectedChild || children[0]?.userId || '' : account?.profile?.userId ?? '';
   const [sessions, setSessions] = useState<CompanionSessionDTO[]>([]);
   const [memory, setMemory] = useState<CompanionMemoryDTO[]>([]);
   const [questions, setQuestions] = useState<WrongQuestionDTO[]>([]);
@@ -135,7 +147,28 @@ const CompanionPage = () => {
 
   return (
     <div className="flex flex-col gap-3 p-4">
-      <PageHeader title="小引 · 学习陪练" subtitle="每道题一个会话，随时回来继续" />
+      <PageHeader
+        title={isParent ? '小引 · 孩子的陪练' : '小引 · 学习陪练'}
+        subtitle={isParent ? '只读查看孩子的陪练记录与记忆' : '每道题一个会话，随时回来继续'}
+      />
+
+      {isParent ? (
+        children.length > 1 ? (
+          <Select value={studentUserId} onValueChange={setSelectedChild}>
+            <SelectTrigger aria-label="选择孩子">
+              <SelectValue placeholder="选择孩子" />
+            </SelectTrigger>
+            <SelectContent>
+              {children.map((c) => (
+                <SelectItem key={c.userId} value={c.userId}>
+                  {c.name ?? c.userId}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null
+      ) : null}
+
         {/* 记忆卡 */}
         <Card className="border-violet-200 bg-gradient-to-br from-violet-50 to-indigo-50">
           <CardContent className="flex flex-col gap-2 p-4">
@@ -163,36 +196,38 @@ const CompanionPage = () => {
           </CardContent>
         </Card>
 
-        {/* 开始新会话 */}
-        <Card>
-          <CardContent className="flex flex-col gap-3 p-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium">开始新的陪练</p>
-              <Button size="sm" variant="outline" disabled={starting} onClick={() => void startSession()}>
-                <Plus className="mr-1 size-3.5" />
-                自由话题
-              </Button>
-            </div>
-            {questions.length > 0 ? (
-              <div className="flex flex-col gap-1.5">
-                <p className="text-xs text-muted-foreground">从错题开始（每道题一个独立会话，可随时回来继续）</p>
-                {questions.slice(0, 5).map((q) => (
-                  <button
-                    key={q.id}
-                    type="button"
-                    disabled={starting}
-                    onClick={() => {
-                      setSearchParams({ wq: q.id });
-                    }}
-                    className="truncate rounded-lg border px-3 py-2 text-left text-xs transition hover:bg-muted"
-                  >
-                    {q.title}
-                  </button>
-                ))}
+        {/* 开始新会话（家长端只读，隐藏创建入口） */}
+        {!isParent ? (
+          <Card>
+            <CardContent className="flex flex-col gap-3 p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium">开始新的陪练</p>
+                <Button size="sm" variant="outline" disabled={starting} onClick={() => void startSession()}>
+                  <Plus className="mr-1 size-3.5" />
+                  自由话题
+                </Button>
               </div>
-            ) : null}
-          </CardContent>
-        </Card>
+              {questions.length > 0 ? (
+                <div className="flex flex-col gap-1.5">
+                  <p className="text-xs text-muted-foreground">从错题开始（每道题一个独立会话，可随时回来继续）</p>
+                  {questions.slice(0, 5).map((q) => (
+                    <button
+                      key={q.id}
+                      type="button"
+                      disabled={starting}
+                      onClick={() => {
+                        setSearchParams({ wq: q.id });
+                      }}
+                      className="truncate rounded-lg border px-3 py-2 text-left text-xs transition hover:bg-muted"
+                    >
+                      {q.title}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
+        ) : null}
 
         {/* 历史会话 */}
         <Card>
@@ -275,19 +310,25 @@ const CompanionPage = () => {
                 ) : null}
               </div>
 
-              <div className="flex items-center gap-2">
-                <Input
-                  value={input}
-                  placeholder="说说你在哪一步卡住了…"
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') void send();
-                  }}
-                />
-                <Button size="icon" onClick={() => void send()} disabled={sending || !input.trim()}>
-                  <Send className="size-4" />
-                </Button>
-              </div>
+              {isParent ? (
+                <p className="rounded-lg bg-muted p-3 text-xs text-muted-foreground">
+                  家长端为只读视图：可以看孩子的陪练过程与小引的记忆，对话由孩子自己进行。
+                </p>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={input}
+                    placeholder="说说你在哪一步卡住了…"
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') void send();
+                    }}
+                  />
+                  <Button size="icon" onClick={() => void send()} disabled={sending || !input.trim()}>
+                    <Send className="size-4" />
+                  </Button>
+                </div>
+              )}
               <button
                 type="button"
                 className="self-start text-[11px] text-muted-foreground underline"

@@ -225,6 +225,7 @@ export class CompanionService {
         status: opening.available ? 'success' : 'degraded',
         latencyMs: Date.now() - started,
         preview: opening.reply,
+        full: { reply: opening.reply, stage: 'understand' },
       },
     );
 
@@ -264,7 +265,7 @@ export class CompanionService {
 
   /** 记忆卡（前端展示，权限复用 assertCanAccess） */
   async memory(userId: string, studentUserId?: string) {
-    const target = studentUserId || userId;
+    const target = await this.resolveTarget(userId, studentUserId);
     await this.assertCanAccess(userId, target);
     const rows = await this.db
       .select()
@@ -392,6 +393,8 @@ export class CompanionService {
     const memories = await this.loadMemories(session.studentUserId);
     const systemPrompt = buildSystemPrompt(GUIDE_PERSONA, stage, name, questionInfo, memories);
     const started = Date.now();
+    // 注意：对话不做服务端内容去重（学生可能合法地重复表达），
+    // 并发保护放在前端（发送中禁用 + in-flight 锁），见 pages/companion。
     const result = await this.aiService.companionReply({
       systemPrompt,
       history: history.map((m) => ({
@@ -446,6 +449,7 @@ export class CompanionService {
         status: result.available ? 'success' : 'degraded',
         latencyMs: Date.now() - started,
         preview: result.reply,
+        full: { reply: result.reply, stage: nextStage },
       },
     );
     await this.refreshMemory(session.studentUserId);
@@ -477,12 +481,27 @@ export class CompanionService {
     };
   }
 
+  /**
+   * 家长未指定孩子时默认看第一个孩子（仍走 assertCanAccess 校验，天然只能看自己孩子）。
+   * 其他角色维持原语义（学生看自己；老师必须显式指定）。
+   */
+  private async resolveTarget(userId: string, studentUserId?: string): Promise<string> {
+    if (studentUserId) return studentUserId;
+    const me = await this.accountService.findProfile(userId);
+    if (me?.role === 'parent') {
+      const accountMe = await this.accountService.getMe(userId).catch(() => null);
+      const children = accountMe?.children ?? [];
+      if (children.length > 0) return children[0].userId;
+    }
+    return userId;
+  }
+
   /** 会话列表（按学生过滤，权限校验后返回；含消息数与最后活跃时间，便于前端展示"历史"） */
   async listSessions(
     userId: string,
     studentUserId?: string,
   ): Promise<(SessionDTO & { messageCount: number; lastActiveAt: string; wrongQuestionId: string | null })[]> {
-    const target = studentUserId || userId;
+    const target = await this.resolveTarget(userId, studentUserId);
     await this.assertCanAccess(userId, target);
     const rows = await this.db
       .select()

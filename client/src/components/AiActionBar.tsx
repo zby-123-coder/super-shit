@@ -10,6 +10,8 @@ export interface AiActionBarProps {
   cachedAt?: number | null;
   callId?: string | null;
   provider?: string;
+  /** 缓存是否已过期（TTL）——展示"数据可能已过时" */
+  stale?: boolean;
   /** 无缓存时的按钮文案（如"生成诊断"） */
   label: string;
   /** 有缓存时的按钮文案 */
@@ -23,6 +25,7 @@ export interface AiActionBarProps {
  * AI 主动触发条（所有 AI 能力统一用这个，保证交互一致）：
  *   - 没有缓存：主按钮"生成"，点了才调 AI
  *   - 有缓存：展示"上次生成时间 + callId + 提供方"，按钮变"重新生成"
+ *   - 缓存过期（stale）：追加"已过期"标记，提示用户重新生成
  *   - 组件挂载不会自动调用（由 useAiFeature 保证）
  */
 const AiActionBar = ({
@@ -31,6 +34,7 @@ const AiActionBar = ({
   cachedAt,
   callId,
   provider,
+  stale,
   label,
   reloadLabel = '重新生成',
   onRun,
@@ -70,6 +74,7 @@ const AiActionBar = ({
             上次生成 {formatAiTime(cachedAt)}
             {callId ? ` · call ${callId.slice(0, 8)}` : ''}
             {provider && provider !== 'unknown' ? ` · ${provider}` : ''}
+            {stale ? <span className="ml-1 rounded bg-amber-100 px-1 text-amber-700">已过期</span> : null}
           </span>
         ) : (
           <span className="text-[11px] text-muted-foreground">点击后才会调用 AI，结果会缓存本地</span>

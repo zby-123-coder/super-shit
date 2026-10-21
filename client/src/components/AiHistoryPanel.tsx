@@ -3,6 +3,7 @@ import { History, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent } from '@client/src/components/ui/card';
 import { Button } from '@client/src/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@client/src/components/ui/dialog';
 import { aiApi } from '@client/src/api';
 import { cacheOwner, formatAiTime, readAiHistory, clearAiCacheOf } from '@client/src/utils/ai-cache';
 import type { AiInvocationLogDTO } from '@shared/api.interface';
@@ -31,6 +32,7 @@ const AiHistoryPanel = ({ ownerUserId }: { ownerUserId?: string }) => {
   const [logs, setLogs] = useState<AiInvocationLogDTO[]>([]);
   const [expanded, setExpanded] = useState(false);
   const [localItems, setLocalItems] = useState(readAiHistory(owner));
+  const [detail, setDetail] = useState<AiInvocationLogDTO | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -83,7 +85,12 @@ const AiHistoryPanel = ({ ownerUserId }: { ownerUserId?: string }) => {
             ) : (
               <div className="flex flex-col gap-1.5">
                 {logs.map((log) => (
-                  <div key={log.callId} className="rounded-lg border p-2.5 text-xs">
+                  <button
+                    key={log.callId}
+                    type="button"
+                    onClick={() => setDetail(log)}
+                    className="rounded-lg border p-2.5 text-left text-xs transition hover:bg-muted"
+                  >
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-medium">{FEATURE_LABEL[log.feature] ?? log.feature}</span>
                       <span className="text-[10px] text-muted-foreground">
@@ -101,7 +108,7 @@ const AiHistoryPanel = ({ ownerUserId }: { ownerUserId?: string }) => {
                     {log.preview ? (
                       <p className="mt-1 line-clamp-2 text-[11px] text-muted-foreground">{log.preview}</p>
                     ) : null}
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
@@ -111,6 +118,35 @@ const AiHistoryPanel = ({ ownerUserId }: { ownerUserId?: string }) => {
             </Button>
           </div>
         ) : null}
+
+        {/* 完整结果回看 */}
+        <Dialog open={!!detail} onOpenChange={(openFlag) => !openFlag && setDetail(null)}>
+          <DialogContent className="max-h-[70vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                {detail ? FEATURE_LABEL[detail.feature] ?? detail.feature : ''} · 完整结果
+              </DialogTitle>
+            </DialogHeader>
+            {detail ? (
+              <div className="flex flex-col gap-2 text-xs">
+                <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
+                  <span className="rounded bg-muted px-1 py-0.5">call {detail.callId.slice(0, 8)}</span>
+                  <span>{detail.provider}</span>
+                  <span>{detail.latencyMs}ms</span>
+                  <span>{formatAiTime(new Date(detail.createdAt).getTime())}</span>
+                  {detail.status === 'degraded' ? <span className="text-orange-600">已降级规则版</span> : null}
+                </div>
+                {detail.full ? (
+                  <pre className="whitespace-pre-wrap break-all rounded-lg bg-muted p-3 text-[11px] leading-relaxed">
+                    {detail.full}
+                  </pre>
+                ) : (
+                  <p className="text-muted-foreground">该次调用没有保存完整结果（更早的记录仅含摘要）。</p>
+                )}
+              </div>
+            ) : null}
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );

@@ -4,11 +4,12 @@ import { StorageService } from '@server/common/storage/storage.service';
 import { AccountModule } from '../account/account.module';
 import { AiController } from './ai.controller';
 import { AiInvocationService } from './ai-invocation.service';
+import { AiIdempotencyService } from './ai-idempotency.service';
 
 @Module({
   imports: [AccountModule],
   controllers: [AiController],
-  providers: [AiService, StorageService, AiInvocationService],
-  exports: [AiService, AiInvocationService],
+  providers: [AiService, StorageService, AiInvocationService, AiIdempotencyService],
+  exports: [AiService, AiInvocationService, AiIdempotencyService],
 })
 export class AiModule {}

@@ -66,6 +66,7 @@ const DiagnosisCard = ({
         <AiActionBar
           loading={ai.loading}
           hasCache={ai.hasCache}
+          stale={ai.stale}
           cachedAt={ai.cachedAt}
           callId={ai.callId}
           provider={ai.provider}
