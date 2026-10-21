@@ -17,7 +17,7 @@ import { aiApi, questionBankApi, wrongQuestionApi } from '@client/src/api';
 import AiActionBar from '@client/src/components/AiActionBar';
 import { useAccount } from '@client/src/hooks/useAccount';
 import { generateVariant } from '@client/src/utils/variant';
-import { cacheOwner, readAiCache, writeAiCache } from '@client/src/utils/ai-cache';
+import { cacheOwner, readAiCache, writeAiCache, AI_CACHE_TTL, DEFAULT_AI_CACHE_TTL } from '@client/src/utils/ai-cache';
 import type {
   ExplainResult,
   QuestionBankItem,
@@ -382,7 +382,7 @@ const WrongQuestionBook = () => {
               <AiActionBar
                 loading={explaining}
                 hasCache={explainCachedAt !== null}
-                stale={explainCachedAt !== null && Date.now() - explainCachedAt > 7 * 24 * 3600 * 1000}
+                stale={explainCachedAt !== null && Date.now() - explainCachedAt > (AI_CACHE_TTL.explain ?? DEFAULT_AI_CACHE_TTL)}
                 cachedAt={explainCachedAt}
                 label="生成讲解"
                 reloadLabel="重新生成讲解"

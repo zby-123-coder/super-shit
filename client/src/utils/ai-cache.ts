@@ -33,17 +33,21 @@ const HISTORY_LIMIT = 30;
 
 /**
  * 各功能缓存 TTL（毫秒）。
- * 诊断类数据随时间过期快；讲题/知识类内容稳定可放久一些。
+ *
+ * 前期统一 30 天（2026-10-22 决策）：产品冷启动阶段"减少重复调用、保证随时能看到上次结果"
+ * 比"数据时效性"更重要——用户切走再回来先看到东西，比看到空屏再等 3 秒强。
+ * 过期后仍展示旧结果并打「已过期」标记，用户点「重新生成」才更新。
+ * 后续如按功能细化（诊断类可缩短），改这张表即可，调用方无感。
  */
 export const AI_CACHE_TTL: Record<string, number> = {
-  diagnosis: 24 * 3600 * 1000, // 学情诊断：1 天
-  weekly: 24 * 3600 * 1000, // 周报：1 天
-  explain: 7 * 24 * 3600 * 1000, // 错题讲解：7 天
-  review_draft: 7 * 24 * 3600 * 1000, // 批阅评语：7 天
-  variant: 30 * 24 * 3600 * 1000, // 变式题：30 天
-  grade_homework: 7 * 24 * 3600 * 1000, // 识图批改：7 天
+  diagnosis: 30 * 24 * 3600 * 1000, // 学情诊断
+  weekly: 30 * 24 * 3600 * 1000, // 周报
+  explain: 30 * 24 * 3600 * 1000, // 错题讲解
+  review_draft: 30 * 24 * 3600 * 1000, // 批阅评语
+  variant: 30 * 24 * 3600 * 1000, // 变式题
+  grade_homework: 30 * 24 * 3600 * 1000, // 识图批改
 };
-export const DEFAULT_AI_CACHE_TTL = 24 * 3600 * 1000;
+export const DEFAULT_AI_CACHE_TTL = 30 * 24 * 3600 * 1000;
 
 const cacheKey = (userId: string, feature: string, scopeId: string) =>
   `${NS}:cache:${userId}:${feature}:${scopeId || '-'}`;
