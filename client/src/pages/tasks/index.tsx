@@ -16,6 +16,7 @@ import { Input } from '@client/src/components/ui/input';
 import { Textarea } from '@client/src/components/ui/textarea';
 import { EmptyBlock, LoadingBlock, PageHeader } from '@client/src/components/PageShell';
 import WrongQuestionBook from '@client/src/components/WrongQuestionBook';
+import AiWaitingHint from '@client/src/components/AiWaitingHint';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@client/src/components/ui/tabs';
 import { aiApi, taskApi, uploadApi } from '@client/src/api';
 import { PRESET_COMMENTS } from '@client/src/utils/review-draft';
@@ -45,6 +46,7 @@ const TasksPage = () => {
   const [reviewComment, setReviewComment] = useState<string>('');
   const [gradeResult, setGradeResult] = useState<HomeworkGradeResult | null>(null);
   const [grading, setGrading] = useState<boolean>(false);
+  const [drafting, setDrafting] = useState<boolean>(false);
   const [checkinImages, setCheckinImages] = useState<string[]>([]);
   const [uploading, setUploading] = useState<boolean>(false);
   const [createOpen, setCreateOpen] = useState<boolean>(false);
@@ -363,6 +365,7 @@ const TasksPage = () => {
                   {grading ? '识别中…' : '开始批改'}
                 </Button>
               </div>
+              {grading ? <AiWaitingHint active variant="vision" /> : null}
               {gradeResult ? (
                 <div className="flex flex-col gap-2 text-sm">
                   {gradeResult.items.length > 0 ? (
@@ -403,6 +406,7 @@ const TasksPage = () => {
               size="sm"
               variant="secondary"
               onClick={async () => {
+                setDrafting(true);
                 try {
                   const result = await aiApi.reviewDraft({
                     content: reviewTask?.checkin?.content ?? '',
@@ -412,11 +416,15 @@ const TasksPage = () => {
                   setReviewComment(result.draft);
                 } catch (error) {
                   toast.error('草稿生成失败，请手动填写');
+                } finally {
+                  setDrafting(false);
                 }
               }}
+              disabled={drafting}
             >
-              生成草稿评语
+              {drafting ? '生成中…' : '生成草稿评语'}
             </Button>
+            {drafting ? <AiWaitingHint active variant="chat" /> : null}
           </div>
           <Textarea
             value={reviewComment}

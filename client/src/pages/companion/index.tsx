@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from '@client/src/components/ui/select';
 import { companionApi, wrongQuestionApi } from '@client/src/api';
+import AiWaitingHint from '@client/src/components/AiWaitingHint';
 import { useAccount } from '@client/src/hooks/useAccount';
 import { formatAiTime } from '@client/src/utils/ai-cache';
 import type {
@@ -304,8 +305,12 @@ const CompanionPage = () => {
                   </div>
                 ))}
                 {sending ? (
-                  <div className="self-start rounded-2xl bg-muted px-3 py-2 text-sm text-muted-foreground">
-                    小引正在想…
+                  <div className="self-start">
+                    <AiWaitingHint
+                      active
+                      variant="chat"
+                      phases={['小引正在看这道题…', '在组织引导的问题…', '想想怎么提示你…']}
+                    />
                   </div>
                 ) : null}
               </div>
