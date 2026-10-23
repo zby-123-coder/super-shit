@@ -24,7 +24,7 @@ import {
 } from '@client/src/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@client/src/components/ui/tabs';
 import { LoadingBlock } from '@client/src/components/PageShell';
-import { adminApi, contentApi, courseApi, messageApi } from '@client/src/api';
+import { adminApi, authApi, contentApi, courseApi, messageApi } from '@client/src/api';
 import type {
   AdminOverview,
   AdminUserDTO,
@@ -397,6 +397,23 @@ const AdminPage = () => {
                       <Badge variant="secondary">
                         {item.phone || '无手机号'}
                       </Badge>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={async () => {
+                          if (!window.confirm(`重置「${item.name}」的密码？重置后对方需用新密码重新登录。`)) {
+                            return;
+                          }
+                          try {
+                            const res = await authApi.resetPassword(item.userId);
+                            toast.success(`已重置，临时密码：${res.tempPassword}`, { duration: 15000 });
+                          } catch (error) {
+                            toast.error((error as Error).message || '重置失败');
+                          }
+                        }}
+                      >
+                        重置密码
+                      </Button>
                     </div>
                   </div>
                 ))}

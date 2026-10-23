@@ -73,6 +73,20 @@ export const authApi = {
     request({ url: '/api/auth/login', method: 'POST', data }),
   logout: (): Promise<{ success: boolean }> =>
     request({ url: '/api/auth/logout', method: 'POST' }),
+  changePassword: (data: {
+    oldPassword: string;
+    newPassword: string;
+  }): Promise<{ success: boolean }> =>
+    request({ url: '/api/auth/password', method: 'PATCH', data }),
+  resetPassword: (
+    userId: string,
+    newPassword?: string,
+  ): Promise<{ success: boolean; tempPassword: string }> =>
+    request({
+      url: `/api/auth/reset-password/${userId}`,
+      method: 'POST',
+      data: newPassword ? { newPassword } : {},
+    }),
 };
 
 export const accountApi = {

@@ -168,6 +168,11 @@ expect "$(api GET /api/companion/sessions "$S1")" 200 "陪练会话列表（含�
 expect "$(api GET /api/companion/memory "$S1")" 200 "小引记忆卡（按学生隔离）"
 expect "$(api POST /api/companion/start "$S1" '{"topic":"缓存复用验证"}')" 201 "开启陪练会话"
 expect "$(api GET /api/companion/sessions "$T1")" 403 "老师不带学生参数查会话被拒（越权防护）"
+expect "$(api PATCH /api/auth/password "$S1" '{"oldPassword":"wrongpwd","newPassword":"newpass123"}')" 401 "旧密码错误被拒"
+expect "$(api PATCH /api/auth/password "$S1" '{"oldPassword":"123456","newPassword":"123"}')" 400 "新密码太短被拒"
+expect "$(api POST "/api/auth/reset-password/$S1_ID" "$S1")" 403 "非管理员重置密码被拒"
+# 重置为 123456：既验证功能，又保持演示账号密码不变（不影响后续运行）
+expect "$(api POST "/api/auth/reset-password/$S1_ID" "$ADMIN" '{"newPassword":"123456"}')" 201 "管理员重置成员密码"
 
 echo ""
 echo "========== RESULT: $PASS passed, $FAIL failed =========="

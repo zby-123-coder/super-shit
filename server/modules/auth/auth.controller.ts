@@ -2,6 +2,8 @@ import {
   Body,
   Controller,
   Headers,
+  Param,
+  Patch,
   Post,
   Req,
 } from '@nestjs/common';
@@ -58,6 +60,27 @@ class LoginDto implements LoginRequest {
   password!: string;
 }
 
+class ChangePasswordDto {
+  @IsString()
+  @MinLength(6)
+  @MaxLength(64)
+  oldPassword!: string;
+
+  @IsString()
+  @MinLength(6)
+  @MaxLength(64)
+  newPassword!: string;
+}
+
+class ResetPasswordDto {
+  /** 不填则服务端生成随机临时密码 */
+  @IsOptional()
+  @IsString()
+  @MinLength(6)
+  @MaxLength(64)
+  newPassword?: string;
+}
+
 @Controller('api/auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -95,5 +118,27 @@ export class AuthController {
     const token = header?.startsWith('Bearer ') ? header.slice(7) : '';
     await this.authService.revoke(token);
     return { success: true };
+  }
+
+  /**
+   * 修改自己的密码（登录用户）。改密后吊销全部会话，需重新登录。
+   */
+  @Patch('password')
+  async changePassword(@Req() req: Request, @Body() dto: ChangePasswordDto) {
+    const { userId } = req.userContext;
+    return this.authService.changePassword(userId, dto.oldPassword, dto.newPassword);
+  }
+
+  /**
+   * 管理员重置成员密码（无需旧密码）。返回临时密码，由管理员转告成员。
+   */
+  @Post('reset-password/:userId')
+  async resetPassword(
+    @Req() req: Request,
+    @Param('userId') targetUserId: string,
+    @Body() dto?: ResetPasswordDto,
+  ) {
+    const { userId } = req.userContext;
+    return this.authService.resetPassword(userId, targetUserId, dto?.newPassword);
   }
 }

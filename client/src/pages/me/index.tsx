@@ -50,6 +50,9 @@ const MePage = () => {
   }>({ name: '', grade: '', loginName: '', password: '' });
   const [studentCode, setStudentCode] = useState<string>('');
   const [editOpen, setEditOpen] = useState<boolean>(false);
+  const [pwdOpen, setPwdOpen] = useState<boolean>(false);
+  const [pwdSaving, setPwdSaving] = useState<boolean>(false);
+  const [pwdForm, setPwdForm] = useState({ oldPassword: '', newPassword: '', confirm: '' });
   const [form, setForm] = useState<{
     role: UserRole;
     name: string;
@@ -404,6 +407,20 @@ const MePage = () => {
 
         <Card>
           <CardContent className="p-4">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <h2 className="text-sm font-medium">账号安全</h2>
+                <p className="mt-1 text-xs text-muted-foreground">定期修改密码可保护账号安全</p>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => setPwdOpen(true)}>
+                修改密码
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
             <div className="mb-2 flex items-center justify-between">
               <h2 className="text-sm font-medium">消息中心</h2>
               <div className="flex items-center gap-2">
@@ -553,6 +570,71 @@ const MePage = () => {
           </div>
           <DialogFooter>
             <Button onClick={handleSaveProfile}>保存</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={pwdOpen} onOpenChange={setPwdOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>修改密码</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-3">
+            <Input
+              type="password"
+              placeholder="当前密码"
+              aria-label="当前密码"
+              value={pwdForm.oldPassword}
+              onChange={(e) => setPwdForm((p) => ({ ...p, oldPassword: e.target.value }))}
+            />
+            <Input
+              type="password"
+              placeholder="新密码（至少 6 位）"
+              aria-label="新密码"
+              value={pwdForm.newPassword}
+              onChange={(e) => setPwdForm((p) => ({ ...p, newPassword: e.target.value }))}
+            />
+            <Input
+              type="password"
+              placeholder="确认新密码"
+              aria-label="确认新密码"
+              value={pwdForm.confirm}
+              onChange={(e) => setPwdForm((p) => ({ ...p, confirm: e.target.value }))}
+            />
+            <p className="text-xs text-muted-foreground">
+              修改成功后需要重新登录（所有设备都会退出）。
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              disabled={pwdSaving}
+              onClick={async () => {
+                if (pwdForm.newPassword !== pwdForm.confirm) {
+                  toast.error('两次输入的新密码不一致');
+                  return;
+                }
+                if (pwdForm.newPassword.length < 6) {
+                  toast.error('新密码至少 6 位');
+                  return;
+                }
+                setPwdSaving(true);
+                try {
+                  await authApi.changePassword({
+                    oldPassword: pwdForm.oldPassword,
+                    newPassword: pwdForm.newPassword,
+                  });
+                  toast.success('密码已修改，请重新登录');
+                  setPwdOpen(false);
+                  clearToken();
+                } catch (error) {
+                  toast.error((error as Error).message || '修改失败');
+                } finally {
+                  setPwdSaving(false);
+                }
+              }}
+            >
+              {pwdSaving ? '提交中…' : '确认修改'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

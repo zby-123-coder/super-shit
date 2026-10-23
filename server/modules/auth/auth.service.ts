@@ -1,9 +1,11 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Inject,
   Injectable,
   Logger,
+  NotFoundException,
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -84,6 +86,13 @@ function verifyPassword(password: string, stored: string): boolean {
   const expectedBuf = Buffer.from(expected, 'hex');
   if (expectedBuf.length !== derived.length) return false;
   return timingSafeEqual(derived, expectedBuf);
+}
+
+/** 新密码强度：与注册保持一致（至少 6 位） */
+function assertStrongPassword(password: string): void {
+  if (!password || password.length < 6) {
+    throw new BadRequestException('新密码至少 6 位');
+  }
 }
 
 @Injectable()
@@ -328,6 +337,75 @@ export class AuthService {
       inviteCode: profile.inviteCode ?? '',
       familyName,
     };
+  }
+
+  /** 修改自己的密码：校验旧密码 → 更新哈希 → 吊销该用户所有会话（强制重新登录） */
+  async changePassword(
+    userId: string,
+    oldPassword: string,
+    newPassword: string,
+  ): Promise<{ success: boolean }> {
+    assertStrongPassword(newPassword);
+    if (newPassword === oldPassword) {
+      throw new BadRequestException('新密码不能与旧密码相同');
+    }
+    const rows = await this.db
+      .select()
+      .from(authCredential)
+      .where(eq(authCredential.userId, userId))
+      .limit(1);
+    if (rows.length === 0) throw new NotFoundException('账号不存在');
+    if (!verifyPassword(oldPassword, rows[0].passwordHash)) {
+      throw new UnauthorizedException('旧密码不正确');
+    }
+    await this.db
+      .update(authCredential)
+      .set({ passwordHash: hashPassword(newPassword) })
+      .where(eq(authCredential.userId, userId));
+    // 安全惯例：改密后踢掉所有已登录设备，防止旧会话继续可用
+    await this.db
+      .update(authSession)
+      .set({ revokedAt: new Date() })
+      .where(and(eq(authSession.userId, userId), isNull(authSession.revokedAt)));
+    this.logger.log(`用户 ${userId} 修改了密码，已吊销全部会话`);
+    return { success: true };
+  }
+
+  /**
+   * 管理员重置成员密码：直接设为新密码（无需旧密码），同样吊销对方全部会话。
+   * 返回新密码供管理员转告成员（成员登录后应自行修改）。
+   */
+  async resetPassword(
+    operatorUserId: string,
+    targetUserId: string,
+    newPassword?: string,
+  ): Promise<{ success: boolean; tempPassword: string }> {
+    const operator = await this.db
+      .select({ role: appProfile.role })
+      .from(appProfile)
+      .where(eq(appProfile.userId, operatorUserId))
+      .limit(1);
+    if (operator[0]?.role !== 'admin') {
+      throw new ForbiddenException('只有管理员可以重置成员密码');
+    }
+    const tempPassword = newPassword?.trim() || randomBytes(4).toString('base64url');
+    assertStrongPassword(tempPassword);
+    const target = await this.db
+      .select({ userId: authCredential.userId })
+      .from(authCredential)
+      .where(eq(authCredential.userId, targetUserId))
+      .limit(1);
+    if (target.length === 0) throw new NotFoundException('目标账号不存在');
+    await this.db
+      .update(authCredential)
+      .set({ passwordHash: hashPassword(tempPassword) })
+      .where(eq(authCredential.userId, targetUserId));
+    await this.db
+      .update(authSession)
+      .set({ revokedAt: new Date() })
+      .where(and(eq(authSession.userId, targetUserId), isNull(authSession.revokedAt)));
+    this.logger.log(`管理员 ${operatorUserId} 重置了 ${targetUserId} 的密码`);
+    return { success: true, tempPassword };
   }
 
   /** 解析 token → userId；未命中/过期/已撤销均返回 null */
