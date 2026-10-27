@@ -204,6 +204,11 @@ export class SupportService {
       .map((id) => byId.get(id))
       .filter((e): e is KbRagEntry => Boolean(e))
       .map((e) => ({ entryId: e.id, title: e.title, stage: e.stage, region: e.region, source: e.source }));
+    // 来源标注是硬性格式要求——LLM 偶发漏写（温度 0.1 实测仍 ~4%）时代码兜底自动补上，
+    // 不靠模型自觉；「末尾必须注明来源」从概率保证变确定性保证
+    if (!refused && !answer.includes('来源：') && sources.length > 0) {
+      answer += `（来源：${sources.map((s) => s.title).join('、')}）`;
+    }
     spans.push({
       name: 'answer.compose', spanType: 'span', startedAt: t, latencyMs: Date.now() - t,
       payload: { refused, citedCount: citedIds.length, sourceCount: sources.length, answerLen: answer.length },

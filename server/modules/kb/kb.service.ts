@@ -45,9 +45,11 @@ export interface KbRagEntry extends KbEntry {
   score: number;
 }
 
-/** 中文 2-gram：相邻字符对（剔除空白）。中文没有空格分词，bigram 是零依赖的最强字面信号。 */
+/** 中文 2-gram：相邻字符对（剔除空白与标点）。中文没有空格分词，bigram 是零依赖的最强字面信号；
+ *  标点（全角？/：/、等）不承载词面信息，留在查询里会稀释覆盖率——
+ *  实测同一问句带不带结尾「？」分差 0.0067，曾把边界条目从应答打成拒答。 */
 function bigrams(text: string): Set<string> {
-  const t = text.replace(/\s+/g, '');
+  const t = text.replace(/[\s\p{P}\p{S}]+/gu, '');
   const grams = new Set<string>();
   for (let i = 0; i < t.length - 1; i += 1) grams.add(t.slice(i, i + 2));
   return grams;

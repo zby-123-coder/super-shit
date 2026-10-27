@@ -427,13 +427,16 @@ export class LlmAiProvider implements AiProvider {
     const entryLines = input.entries
       .map((e) => `[${e.id}]（${e.region}）标题：${e.title}\n问法：${e.question || '—'}\n内容：${e.content}`)
       .join('\n---\n');
-    // postChat：捕获 token 用量供 span/Langfuse 观测
+    // postChat：捕获 token 用量供 span/Langfuse 观测。
+    // temperature 0.1：事实型政策问答 + 严格 JSON/来源格式，默认 0.4 会出现
+    // 偶发缺来源标注、补充条目外信息（评测波动实测）——与 LLM-as-judge 同温保持可复现
     const { content, usage } = await this.postChat(
       input.systemPrompt,
       `用户问题：${input.question}\n\n` +
         `知识库检索条目（回答只能依据这些条目，条目外信息一律不写）：\n${entryLines}\n\n` +
         '严格输出 JSON：{"answer":"回答正文，末尾注明（来源：条目标题）","refused":false,' +
         '"cited_ids":["引用条目的 [id]，可多个"]}',
+      { temperature: 0.1 },
     );
     const text = content;
     const start = text.indexOf('{');

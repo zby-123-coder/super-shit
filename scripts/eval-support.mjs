@@ -156,7 +156,7 @@ async function main() {
 
   console.log('===== 检索评测（不调 LLM）=====');
   console.log(`hit@1: ${hit1}/${answerCases.length}  hit@5: ${hit5}/${answerCases.length}  MRR: ${(mrrSum / answerCases.length).toFixed(3)}`);
-  console.log(`拒答检索拦截（top1<0.12 直接拒答不烧 LLM）: ${refusalBlocked}/${refuseCases.length}`);
+  console.log(`拒答检索拦截（top1<${THRESHOLD} 直接拒答不烧 LLM）: ${refusalBlocked}/${refuseCases.length}`);
   if (missDetail.length > 0) console.log(missDetail.join('\n'));
 
   if (SKIP_LLM) {
@@ -204,6 +204,8 @@ async function main() {
         if (verdict.fabrication) {
           fabricated += 1;
           failDetail.push(`  ✗ [编造] ${c.q} → ${verdict.reason ?? ''}`);
+        } else if (f < 4) {
+          failDetail.push(`  ✗ [忠实度${f}] ${c.q} → ${verdict.reason ?? ''}`);
         }
       }
     } catch (error) {
