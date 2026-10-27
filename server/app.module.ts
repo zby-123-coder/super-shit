@@ -21,6 +21,7 @@ import { CompanionModule } from './modules/companion/companion.module';
 import { InsightModule } from './modules/insight/insight.module';
 import { AdmissionModule } from './modules/admission/admission.module';
 import { KbModule } from './modules/kb/kb.module';
+import { SupportModule } from './modules/support/support.module';
 import { UploadModule } from './modules/upload/upload.module';
 import { DemoModule } from './modules/demo/demo.module';
 import { ReportModule } from './modules/report/report.module';
@@ -49,6 +50,7 @@ import { WrongQuestionModule } from './modules/wrong-question/wrong-question.mod
     InsightModule,
     AdmissionModule,
     KbModule,
+    SupportModule,
     UploadModule,
     DemoModule,
     ReportModule,

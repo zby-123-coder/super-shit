@@ -177,6 +177,33 @@ export interface OpsContentResult {
   posts: OpsPostDraft[];
 }
 
+export interface SupportAnswerInput {
+  /** system prompt（客服人设+回答规则，由 support 模块构建，可版本化） */
+  systemPrompt: string;
+  /** 用户问题（中文自然句） */
+  question: string;
+  /** 检索命中的知识库条目（回答只能依据这些，库外必须拒答） */
+  entries: {
+    id: string;
+    title: string;
+    question: string;
+    content: string;
+    region: string;
+  }[];
+}
+
+export interface SupportAnswerResult {
+  /** false = 规则版回答（不能生成自然语言，退化为条目摘录） */
+  available: boolean;
+  answer: string;
+  /** true = 库内条目不足以回答，已拒答（须转人工） */
+  refused: boolean;
+  /** 引用的条目 id（服务端会校验必须 ⊆ 输入条目） */
+  citedIds: string[];
+  /** LLM token 用量（规则版无；供 span/Langfuse 观测） */
+  usage?: { promptTokens?: number; completionTokens?: number; totalTokens?: number };
+}
+
 export interface AiProvider {
   /** 提供方名称，用于日志与排查 */
   readonly name: string;
@@ -207,4 +234,7 @@ export interface AiProvider {
 
   /** 学习状态洞察：多源信号 → 状态分级 + 证据 + 决策动作 */
   insight(input: InsightInput): Promise<InsightResult>;
+
+  /** 智能客服：问题 + 检索条目 → 受约束回答（只依据条目、库外拒答、必须带来源） */
+  supportAnswer(input: SupportAnswerInput): Promise<SupportAnswerResult>;
 }

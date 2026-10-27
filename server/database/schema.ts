@@ -593,6 +593,35 @@ export const aiInvocationLog = pgTable("ai_invocation_log", {
   index("idx_ai_log_feature").on(table.userId, table.feature),
 ]);
 
+/**
+ * AI 观测层：span 树（trace 根 = ai_invocation_log.call_id，迁移见 scripts/migrate-ai-span.mjs）。
+ *   - span：一次 AI 调用的子观测（kb.search / prompt.build / llm.call / answer.compose）
+ *   - generation：LLM 调用观测（带 token 用量，Langfuse 映射为 generation）
+ *   - event：一次事件（如 feedback 👍👎，Langfuse 映射为 score）
+ */
+export const aiSpan = pgTable("ai_span", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  /** 所属 trace（= ai_invocation_log.call_id） */
+  traceId: uuid("trace_id").notNull(),
+  parentSpanId: uuid("parent_span_id"),
+  /** span 子观测 / generation LLM 调用 / event 事件 */
+  spanType: varchar("span_type", { length: 16 }).notNull().default('span'),
+  name: varchar("name", { length: 64 }).notNull(),
+  /** success / error */
+  status: varchar("status", { length: 16 }).notNull().default('success'),
+  latencyMs: integer("latency_ms"),
+  /** LLM 调用的模型名（generation 用） */
+  model: varchar("model", { length: 64 }),
+  /** 输入/输出摘要（JSON：question/hitCount/promptChars/answerLen/...） */
+  payload: jsonb("payload"),
+  promptTokens: integer("prompt_tokens"),
+  completionTokens: integer("completion_tokens"),
+  totalTokens: integer("total_tokens"),
+  createdAt: customTimestamptz("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  index("idx_ai_span_trace").on(table.traceId),
+]);
+
 export const aiMemory = pgTable("ai_memory", {
   id: uuid("id").primaryKey().defaultRandom(),
   /** 记忆归属学生（严格按学生隔离，家长/老师不能写入他人记忆） */

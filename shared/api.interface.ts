@@ -553,3 +553,52 @@ export interface BroadcastRequest {
   content: string;
   role?: UserRole;
 }
+
+// ===== 智能客服（RAG 链路）=====
+
+export interface SupportAskRequest {
+  /** 用户问题（中文自然句） */
+  question: string;
+  /** 家长代问时标识孩子（调用日志与评测数据按学生归属）；本人问可不传 */
+  studentUserId?: string;
+  /** 地域（如 北京/浙江），不传则不过滤 */
+  region?: string;
+}
+
+export interface SupportSourceDTO {
+  entryId: string;
+  title: string;
+  stage: string;
+  region: string;
+  /** 官方来源（URL 或说明），供引用与人工核验 */
+  source: string;
+}
+
+export interface SupportAskResponse {
+  /** 回答正文（末尾注明来源）；refused 时为转人工说明 */
+  answer: string;
+  /** true = 库内没有可靠依据，已拒答并建议转人工 */
+  refused: boolean;
+  /** 回答依据的知识库条目（前端展示"来源"用） */
+  sources: SupportSourceDTO[];
+  /** 本次调用留痕 id（可在 AI 调用历史回看） */
+  callId: string | null;
+  /** llm = 真实模型；rule = 规则版（未配 AI_API_KEY 或 LLM 失败降级） */
+  provider: string;
+  /** true = 命中幂等保护（复用刚才结果，没有重复调用 LLM） */
+  deduped?: boolean;
+}
+
+export interface SupportFeedbackRequest {
+  /** 要反馈的调用（support.ask 返回的 callId） */
+  callId: string;
+  /** up = 有帮助 / down = 没帮助 */
+  rating: 'up' | 'down';
+  comment?: string;
+}
+
+export interface SupportFeedbackResponse {
+  ok: boolean;
+  /** true = 命中幂等（10s 内重复反馈去重） */
+  deduped?: boolean;
+}

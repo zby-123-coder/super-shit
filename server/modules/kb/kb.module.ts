@@ -5,5 +5,6 @@ import { KbService } from './kb.service';
 @Module({
   controllers: [KbController],
   providers: [KbService],
+  exports: [KbService],
 })
 export class KbModule {}

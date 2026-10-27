@@ -35,7 +35,9 @@ export class AiInvocationService {
 
   constructor(@Inject(DRIZZLE_DATABASE) private readonly db: PostgresJsDatabase) {}
 
-  /** 写一条调用日志；失败不影响主流程（不能因为日志挂掉业务） */
+  /** 写一条调用日志；失败不影响主流程（不能因为日志挂掉业务）
+   *  extra.callId：调用方预生成的 trace id（span 树用它做 traceId，需与日志一致）；
+   *  不传则由数据库生成。 */
   async record(
     meta: InvocationMeta,
     extra: {
@@ -45,12 +47,15 @@ export class AiInvocationService {
       preview?: string;
       /** 完整结果（供回看）；不传则只存摘要 */
       full?: unknown;
+      /** 预生成的调用 id（span 树 traceId） */
+      callId?: string;
     },
   ) {
     try {
       const [row] = await this.db
         .insert(aiInvocationLog)
         .values({
+          ...(extra.callId ? { callId: extra.callId } : {}),
           userId: meta.userId,
           role: meta.role,
           feature: meta.feature,
@@ -68,6 +73,16 @@ export class AiInvocationService {
       this.logger.warn(`调用日志写入失败（忽略）：${(error as Error).message}`);
       return null;
     }
+  }
+
+  /** 按 callId 查单条（feedback 身份校验用：只能给自己的调用留反馈） */
+  async get(callId: string) {
+    const [row] = await this.db
+      .select()
+      .from(aiInvocationLog)
+      .where(eq(aiInvocationLog.callId, callId))
+      .limit(1);
+    return row ?? null;
   }
 
   /** 我的调用历史（严格按 userId 隔离，功能筛选只能收窄不能越权） */

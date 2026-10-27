@@ -13,6 +13,8 @@ import type {
   OpsContentInput,
   OpsContentResult,
   ReviewDraftInput,
+  SupportAnswerInput,
+  SupportAnswerResult,
   VariantInput,
   WeeklyReportInput,
 } from './ai.types';
@@ -344,6 +346,24 @@ export class RuleAiProvider implements AiProvider {
       available: false,
       items: [],
       summary: '当前为规则版 AI（未配置 AI_API_KEY），暂不支持识图批改；配置后即可自动识别作业图片。',
+    };
+  }
+
+  /**
+   * 规则版客服：不假装能生成自然语言——摘录最相关条目原文 + 标注需人工确认。
+   * 拒答逻辑由调用方的检索层负责（条目为空时不会走到这里，但契约上保持一致）。
+   */
+  async supportAnswer(input: SupportAnswerInput): Promise<SupportAnswerResult> {
+    if (input.entries.length === 0) {
+      return { available: false, answer: '', refused: true, citedIds: [] };
+    }
+    const top = input.entries[0];
+    return {
+      available: false,
+      answer:
+        `根据知识库「${top.title}」：\n${top.content}\n（当前为规则版回答，建议向老师人工确认）`,
+      refused: false,
+      citedIds: [top.id],
     };
   }
 

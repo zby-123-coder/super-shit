@@ -38,6 +38,10 @@ import type {
   SaveArticleRequest,
   SaveProfileRequest,
   SaveProgressRequest,
+  SupportAskRequest,
+  SupportAskResponse,
+  SupportFeedbackRequest,
+  SupportFeedbackResponse,
   TaskDTO,
   TaskListResponse,
   UpdateAdminUserRequest,
@@ -314,6 +318,13 @@ export const opsApi = {
     request({ url: '/api/ops/drafts', method: 'GET' }),
   generate: (data: OpsGenerateRequest): Promise<OpsGenerateResponse> =>
     request({ url: '/api/ops/generate', method: 'POST', data }),
+};
+
+export const supportApi = {
+  ask: (data: SupportAskRequest): Promise<SupportAskResponse> =>
+    request({ url: '/api/support/ask', method: 'POST', data }),
+  feedback: (data: SupportFeedbackRequest): Promise<SupportFeedbackResponse> =>
+    request({ url: '/api/support/feedback', method: 'POST', data }),
 };
 
 export const questionBankApi = {

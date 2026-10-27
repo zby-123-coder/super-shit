@@ -16,6 +16,8 @@ import type {
   OpsContentInput,
   OpsContentResult,
   ReviewDraftInput,
+  SupportAnswerInput,
+  SupportAnswerResult,
   VariantInput,
   WeeklyReportInput,
 } from './ai.types';
@@ -121,6 +123,13 @@ export class AiService {
     return this.run(
       (p) => p.insight(input),
       (p) => p.insight(input),
+    );
+  }
+
+  supportAnswer(input: SupportAnswerInput): Promise<SupportAnswerResult> {
+    return this.run(
+      (p) => p.supportAnswer(input),
+      (p) => p.supportAnswer(input),
     );
   }
 }

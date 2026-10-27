@@ -10,6 +10,7 @@ import TasksPage from './pages/tasks';
 import LessonsPage from './pages/lessons';
 import ProgressPage from './pages/progress';
 import CompanionPage from './pages/companion';
+import SupportPage from './pages/support';
 import ContentPage from './pages/content';
 import ArticleDetailPage from './pages/article-detail';
 import ProfilePage from './pages/me';
@@ -27,6 +28,7 @@ const RoutesComponent = () => {
         <Route path="lessons" element={<LessonsPage />} />
         <Route path="progress" element={<ProgressPage />} />
         <Route path="companion" element={<CompanionPage />} />
+        <Route path="support" element={<SupportPage />} />
         <Route path="content" element={<ContentPage />} />
         <Route path="content/:id" element={<ArticleDetailPage />} />
         <Route path="me" element={<ProfilePage />} />

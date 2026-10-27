@@ -14,6 +14,8 @@ import type {
   OpsContentInput,
   OpsContentResult,
   ReviewDraftInput,
+  SupportAnswerInput,
+  SupportAnswerResult,
   VariantInput,
   WeeklyReportInput,
 } from './ai.types';
@@ -41,6 +43,12 @@ import type {
  * 未配置 AI_API_KEY 时 AiService 不会实例化本类，业务无感降级到规则版。
  * 请求/响应格式如与你的服务不一致，只改本文件的 chat() 即可。
  */
+/** chat 的完整返回：正文 + token 用量（供 span/Langfuse 观测） */
+interface PostChatResult {
+  content: string;
+  usage?: { promptTokens?: number; completionTokens?: number; totalTokens?: number };
+}
+
 export class LlmAiProvider implements AiProvider {
   readonly name = 'llm';
   private readonly logger = new Logger(LlmAiProvider.name);
@@ -60,7 +68,17 @@ export class LlmAiProvider implements AiProvider {
     'deepseek-v3',
   ]);
 
+  /** chat 的完整返回：正文 + token 用量（供 span/Langfuse 观测） */
   private async chat(system: string, user: string): Promise<string> {
+    return (await this.postChat(system, user)).content;
+  }
+
+  /** 共享请求路径（OpenAI 兼容）：正文 + usage 捕获。需要 token 观测的能力直接调本方法。 */
+  private async postChat(
+    system: string,
+    user: string,
+    opts: { temperature?: number; maxTokens?: number } = {},
+  ): Promise<PostChatResult> {
     const res = await fetch(`${this.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
@@ -73,8 +91,9 @@ export class LlmAiProvider implements AiProvider {
           { role: 'system', content: system },
           { role: 'user', content: user },
         ],
-        temperature: 0.4,
-        // 不设 max_tokens：deepseek-flash 等思考型模型会先消耗大量 token 于
+        temperature: opts.temperature ?? 0.4,
+        ...(opts.maxTokens !== undefined ? { max_tokens: opts.maxTokens } : {}),
+        // 不设 max_tokens 时（默认）：deepseek-flash 等思考型模型会先消耗大量 token 于
         // reasoning_content，设小值会把 JSON 正文截断（finish_reason=length）导致解析失败
         //（此前 600→1200 仍不够，思考型模型实测思考就花了 900+ token）
       }),
@@ -86,8 +105,18 @@ export class LlmAiProvider implements AiProvider {
     }
     const data = (await res.json()) as {
       choices?: { message?: { content?: string } }[];
+      usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
     };
-    return data.choices?.[0]?.message?.content?.trim() ?? '';
+    return {
+      content: data.choices?.[0]?.message?.content?.trim() ?? '',
+      usage: data.usage
+        ? {
+            promptTokens: data.usage.prompt_tokens,
+            completionTokens: data.usage.completion_tokens,
+            totalTokens: data.usage.total_tokens,
+          }
+        : undefined,
+    };
   }
 
   async polishWeeklyReport(input: WeeklyReportInput): Promise<string> {
@@ -381,6 +410,53 @@ export class LlmAiProvider implements AiProvider {
           }))
         : [],
     };
+  }
+
+  /**
+   * 智能客服：受约束 RAG 回答。
+   * 护栏全部写在 systemPrompt（由 support 模块构建，可版本化、可评测）；
+   * 这里只负责：条目编入 prompt → JSON 契约 → 容错解析。
+   * 设计取舍：
+   *   - 检索为空直接返回 refused（调用方本该先拒答），不浪费一次注定拒答的调用
+   *   - 解析失败抛错 → AiService 降级规则版（摘录条目），比拿不可控文本当依据更安全
+   */
+  async supportAnswer(input: SupportAnswerInput): Promise<SupportAnswerResult> {
+    if (input.entries.length === 0) {
+      return { available: true, answer: '', refused: true, citedIds: [] };
+    }
+    const entryLines = input.entries
+      .map((e) => `[${e.id}]（${e.region}）标题：${e.title}\n问法：${e.question || '—'}\n内容：${e.content}`)
+      .join('\n---\n');
+    // postChat：捕获 token 用量供 span/Langfuse 观测
+    const { content, usage } = await this.postChat(
+      input.systemPrompt,
+      `用户问题：${input.question}\n\n` +
+        `知识库检索条目（回答只能依据这些条目，条目外信息一律不写）：\n${entryLines}\n\n` +
+        '严格输出 JSON：{"answer":"回答正文，末尾注明（来源：条目标题）","refused":false,' +
+        '"cited_ids":["引用条目的 [id]，可多个"]}',
+    );
+    const text = content;
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}');
+    if (start < 0 || end <= start) {
+      throw new Error('客服回答输出无法解析（无 JSON 正文）');
+    }
+    try {
+      const parsed = JSON.parse(text.slice(start, end + 1)) as {
+        answer?: string;
+        refused?: boolean;
+        cited_ids?: string[];
+      };
+      return {
+        available: true,
+        answer: String(parsed.answer ?? ''),
+        refused: !!parsed.refused,
+        citedIds: Array.isArray(parsed.cited_ids) ? parsed.cited_ids.map(String) : [],
+        usage,
+      };
+    } catch {
+      throw new Error('客服回答输出无法解析（JSON 断裂）');
+    }
   }
 
   async variant(input: VariantInput): Promise<string | null> {

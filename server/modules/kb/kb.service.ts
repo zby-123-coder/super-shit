@@ -34,6 +34,45 @@ export interface KbUpsertInput {
   source?: string;
 }
 
+export interface KbRagInput {
+  question: string;
+  region?: string;
+  limit?: number;
+}
+
+export interface KbRagEntry extends KbEntry {
+  /** 2-gram 检索得分（0-1，查询侧 bigram 覆盖率），客服据此判断"够不够答" */
+  score: number;
+}
+
+/** 中文 2-gram：相邻字符对（剔除空白）。中文没有空格分词，bigram 是零依赖的最强字面信号。 */
+function bigrams(text: string): Set<string> {
+  const t = text.replace(/\s+/g, '');
+  const grams = new Set<string>();
+  for (let i = 0; i < t.length - 1; i += 1) grams.add(t.slice(i, i + 2));
+  return grams;
+}
+
+/** 查询侧覆盖率：查询 bigram 被条目文本覆盖的比例 */
+function coverage(queryGrams: Set<string>, text: string): number {
+  if (queryGrams.size === 0) return 0;
+  const doc = bigrams(text);
+  let hit = 0;
+  for (const g of queryGrams) if (doc.has(g)) hit += 1;
+  return hit / queryGrams.size;
+}
+
+/** 打分：标题+问法 0.55 / 正文 0.25 / 关键词命中 0.2（关键词是精确子串，信号最强） */
+function scoreEntry(question: string, entry: KbEntry): number {
+  const q = bigrams(question);
+  if (q.size === 0) return 0;
+  const head = coverage(q, `${entry.title}${entry.question}`);
+  const body = coverage(q, entry.content);
+  const kwHits = entry.keywords.filter((k) => k && question.includes(k)).length;
+  const kw = Math.min(1, kwHits / 2);
+  return Math.min(1, 0.55 * head + 0.25 * body + 0.2 * kw);
+}
+
 const STAGES = new Set(['gaokao', 'zhongkao']);
 const CATEGORIES = new Set(['policy', 'zhiyuan', 'xuanke', 'timeline', 'special', 'faq']);
 
@@ -99,6 +138,48 @@ export class KbService {
       keywords: row.keywords ?? [],
       source: row.source ?? '',
     }));
+  }
+
+  /**
+   * 客服 RAG 检索：中文 2-gram 字符重叠打分，零 embedding 依赖。
+   *
+   * 为什么不用 search()：search 的关键词层是 ilike %整句% + 空格分词后 = any(keywords)，
+   * 中文问题没有空格 → 整句作为一个词 → 两种匹配都失灵（客服接入前发现的关键缺口）。
+   * 2-gram 把问题切成相邻字符对，天然适配中文。
+   *
+   * 打分口径：查询 bigram 被条目覆盖率（0-1，越高越相关）。
+   * 候选集取回内存打分——当前 34 条量级完全可行；
+   * 条目上千后换 pg_trgm/embedding，本接口签名不变。
+   */
+  async searchRag(input: KbRagInput): Promise<KbRagEntry[]> {
+    const question = input.question.trim();
+    if (!question) return [];
+    const conditions: SQL[] = [];
+    if (input.region) {
+      // 地域匹配：命中 region 或条目本身全国通用
+      conditions.push(or(eq(educationKb.region, input.region), eq(educationKb.region, '全国'))!);
+    }
+    const rows = await this.db
+      .select()
+      .from(educationKb)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .limit(500);
+    const scored = rows.map((row) => {
+      const entry: KbEntry = {
+        id: row.id,
+        stage: row.stage,
+        category: row.category,
+        region: row.region,
+        title: row.title,
+        question: row.question ?? '',
+        content: row.content,
+        keywords: row.keywords ?? [],
+        source: row.source ?? '',
+      };
+      return { ...entry, score: scoreEntry(question, entry) };
+    });
+    scored.sort((a, b) => b.score - a.score || a.title.localeCompare(b.title));
+    return scored.filter((e) => e.score > 0).slice(0, Math.min(Math.max(input.limit ?? 5, 1), 20));
   }
 
   /** 分类统计（智能客服/前端筛选用） */

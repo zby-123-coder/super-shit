@@ -91,6 +91,23 @@ export class KbController {
     return this.service.stats();
   }
 
+  /**
+   * 客服 RAG 检索调试口：2-gram 打分返回 top 条目（带 score）。
+   * scripts/eval-support.mjs 的检索评测走这里；排查"为什么没检索到"也用它。
+   */
+  @Get('rag-search')
+  ragSearch(
+    @Query('question') question?: string,
+    @Query('region') region?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.service.searchRag({
+      question: question ?? '',
+      region,
+      limit: limit ? Number(limit) : undefined,
+    });
+  }
+
   /** 人工补库（upsert，唯一键 stage+title） */
   @Post('entries')
   upsert(@Body() dto: KbUpsertDto) {
