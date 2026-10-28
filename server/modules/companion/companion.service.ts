@@ -11,6 +11,7 @@ import { aiMemory, aiMessage, aiSession, appProfile, wrongQuestion } from '@serv
 import { AiService } from '@server/common/ai/ai.service';
 import { AiInvocationService } from '../ai/ai-invocation.service';
 import { AccountService } from '../account/account.service';
+import { CompanionMemoryService, SUMMARY_EVERY_N_USER_MSGS } from './companion-memory.service';
 import {
   GUIDE_PERSONA,
   STAGE_LABEL,
@@ -71,6 +72,7 @@ export class CompanionService {
     private readonly aiService: AiService,
     private readonly accountService: AccountService,
     private readonly invocationService: AiInvocationService,
+    private readonly memoryService: CompanionMemoryService,
   ) {}
 
   private async studentName(userId: string): Promise<string> {
@@ -196,8 +198,16 @@ export class CompanionService {
     const session = inserted[0];
 
     const name = await this.studentName(target);
-    const memories = await this.loadMemories(target);
-    const systemPrompt = buildSystemPrompt(GUIDE_PERSONA, 'understand', name, questionInfo, memories);
+    // 记忆注入：以本题/主题为查询做 RAG 取回 + 因材施教卡（开场即带画像）
+    const context = await this.memoryService.contextFor(target, questionInfo?.title ?? topic);
+    const systemPrompt = buildSystemPrompt(
+      GUIDE_PERSONA,
+      'understand',
+      name,
+      questionInfo,
+      context.memories.map((m) => ({ content: m.content, kind: m.kind })),
+      context.card,
+    );
     const started = Date.now();
     const opening = await this.aiService.companionReply({
       systemPrompt,
@@ -252,34 +262,31 @@ export class CompanionService {
 
   // ===== 记忆系统（跨会话，严格按学生隔离） =====
 
-  /** 读取该学生的记忆（注入 prompt 用，取重要度最高的 5 条） */
-  private async loadMemories(studentUserId: string) {
-    const rows = await this.db
-      .select({ content: aiMemory.content, kind: aiMemory.kind, importance: aiMemory.importance })
-      .from(aiMemory)
-      .where(eq(aiMemory.studentUserId, studentUserId))
-      .orderBy(desc(aiMemory.importance), desc(aiMemory.updatedAt))
-      .limit(5);
-    return rows;
-  }
-
-  /** 记忆卡（前端展示，权限复用 assertCanAccess） */
-  async memory(userId: string, studentUserId?: string) {
+  /** 记忆卡（前端展示，权限复用 assertCanAccess；默认只给生效记忆，历史链按需展开） */
+  async memory(userId: string, studentUserId?: string, includeSuperseded = false) {
     const target = await this.resolveTarget(userId, studentUserId);
     await this.assertCanAccess(userId, target);
-    const rows = await this.db
+    return this.memoryService.listFor(target, includeSuperseded);
+  }
+
+  /** 记忆 RAG 取回（词面相关 × 重要度 × 时间衰减；调试/评测端点，权限同会话隔离） */
+  async retrieveMemories(userId: string, query: string, studentUserId?: string) {
+    const target = await this.resolveTarget(userId, studentUserId);
+    await this.assertCanAccess(userId, target);
+    return this.memoryService.retrieve(target, query, 5);
+  }
+
+  /** 手动触发影子总结（运维/测试入口；权限同会话访问） */
+  async summarizeManually(userId: string, sessionId: string): Promise<{ success: boolean; applied: number }> {
+    const sessions = await this.db
       .select()
-      .from(aiMemory)
-      .where(eq(aiMemory.studentUserId, target))
-      .orderBy(desc(aiMemory.importance), desc(aiMemory.updatedAt))
-      .limit(20);
-    return rows.map((row) => ({
-      id: row.id,
-      kind: row.kind,
-      content: row.content,
-      importance: row.importance,
-      updatedAt: row.updatedAt.toISOString(),
-    }));
+      .from(aiSession)
+      .where(eq(aiSession.id, sessionId))
+      .limit(1);
+    if (sessions.length === 0) throw new NotFoundException('会话不存在');
+    await this.assertCanAccess(userId, sessions[0].studentUserId);
+    const applied = await this.memoryService.summarizeSession(sessions[0], userId);
+    return { success: true, applied };
   }
 
   /**
@@ -365,6 +372,14 @@ export class CompanionService {
       .orderBy(asc(aiMessage.createdAt))
       .limit(40);
 
+    // 影子记忆员·懒触发 a)：会话沉默 ≥30min = 上一段学习已结束，
+    // 先同步总结出最新画像，再继续本轮对话（新鲜记忆直接参与本次回复）。
+    // 骑在用户消息请求上，绝不搞定时器自动调 AI。
+    if (await this.memoryService.shouldSummarizeForSilence(sessionId)) {
+      const applied = await this.memoryService.summarizeSession(session, userId);
+      this.logger.log(`沉默触发影子总结：session=${sessionId} applied=${applied}`);
+    }
+
     // 落库学生消息
     const userMessage = await this.db
       .insert(aiMessage)
@@ -389,9 +404,16 @@ export class CompanionService {
     }
 
     const stage = session.stage as CompanionStage;
-    // 记忆注入：跨会话累积的学生画像（仅本人）
-    const memories = await this.loadMemories(session.studentUserId);
-    const systemPrompt = buildSystemPrompt(GUIDE_PERSONA, stage, name, questionInfo, memories);
+    // 记忆注入：RAG 取回（当前发言相关 × 重要度 × 时间衰减）+ 因材施教卡（仅本人）
+    const context = await this.memoryService.contextFor(session.studentUserId, content);
+    const systemPrompt = buildSystemPrompt(
+      GUIDE_PERSONA,
+      stage,
+      name,
+      questionInfo,
+      context.memories.map((m) => ({ content: m.content, kind: m.kind })),
+      context.card,
+    );
     const started = Date.now();
     // 注意：对话不做服务端内容去重（学生可能合法地重复表达），
     // 并发保护放在前端（发送中禁用 + in-flight 锁），见 pages/companion。
@@ -434,7 +456,8 @@ export class CompanionService {
       .where(eq(aiSession.id, sessionId))
       .returning();
 
-    // 调用留痕（归属发起对话的人，便于他在"我的调用历史"里回看）+ 记忆刷新
+    // 调用留痕（归属发起对话的人，便于他在"我的调用历史"里回看）+ 记忆刷新。
+    // full 里带 memoriesUsed/cardDepth：排查"记忆是否真的注入了"不用翻库
     const caller = await this.accountService.findProfile(userId);
     const callId = await this.invocationService.record(
       {
@@ -449,10 +472,21 @@ export class CompanionService {
         status: result.available ? 'success' : 'degraded',
         latencyMs: Date.now() - started,
         preview: result.reply,
-        full: { reply: result.reply, stage: nextStage },
+        full: {
+          reply: result.reply,
+          stage: nextStage,
+          cardDepth: context.card.depth,
+          memoriesUsed: context.memories.map((m) => `${m.kind}:${m.content.slice(0, 40)}`),
+        },
       },
     );
     await this.refreshMemory(session.studentUserId);
+
+    // 影子记忆员·懒触发 b)：每满 N 条学生发言 / 会话刚收尾 → 回复后异步总结（不阻塞返回）
+    const userTurns = history.filter((m) => m.role === 'user').length + 1;
+    if (nextStage === 'close' || userTurns % SUMMARY_EVERY_N_USER_MSGS === 0) {
+      void this.memoryService.summarizeSession(updated[0], userId);
+    }
 
     return {
       messages: [

@@ -188,8 +188,11 @@ const CompanionPage = () => {
                     key={item.id}
                     className="rounded-full border border-violet-200 bg-white/80 px-2.5 py-1 text-[11px] text-violet-900"
                   >
-                    {item.kind === 'weakness' ? '薄弱点' : item.kind === 'progress' ? '进度' : '事实'}：
-                    {item.content}
+                    {item.kind === 'weakness' ? '薄弱点' : item.kind === 'progress' ? '进度' : item.kind === 'preference' ? '偏好' : item.kind === 'style' ? '风格' : '事实'}
+                    ：{item.content}
+                    {item.source === 'shadow' ? (
+                      <span className="ml-1 text-[9px] text-violet-400">影子总结</span>
+                    ) : null}
                   </span>
                 ))}
               </div>

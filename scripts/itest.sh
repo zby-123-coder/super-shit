@@ -175,5 +175,19 @@ expect "$(api POST "/api/auth/reset-password/$S1_ID" "$S1")" 403 "非管理员�
 expect "$(api POST "/api/auth/reset-password/$S1_ID" "$ADMIN" '{"newPassword":"123456"}')" 201 "管理员重置成员密码"
 
 echo ""
+echo "=== 19. 小引记忆（影子总结/RAG 取回/权限隔离） ==="
+# 第 18 节末尾的管理员重置密码会吊销 S1 全部会话 → 这里重新登录拿新 token
+S1=$(ensure student001 student 林小满 "$S1_EXTRA")
+SESS=$(api POST /api/companion/start "$S1" '{"studentUserId":"'"$S1_ID"'"}')
+expect "$SESS" 201 "开启陪练会话（记忆链路）"
+SESS_ID=$(echo "$SESS" | sed 's/ \[[0-9]*\]$//' | python3 -c "import sys,json;print(json.load(sys.stdin).get('session',{}).get('id',''))" 2>/dev/null)
+expect "$(api POST "/api/companion/sessions/$SESS_ID/messages" "$S1" '{"content":"我在含参最值问题上总卡住，我喜欢先自己想一会儿再要提示"}')" 201 "发送消息（含偏好自述）"
+expect "$(api POST "/api/companion/sessions/$SESS_ID/summarize" "$S1")" 201 "手动触发影子总结（本人会话）"
+expect "$(api GET "/api/companion/memory/retrieve?q=%E5%90%AB%E5%8F%82%E6%9C%80%E5%80%BC" "$S1")" 200 "记忆 RAG 取回（带得分）"
+expect "$(api GET "/api/companion/memory?includeSuperseded=true" "$S1")" 200 "记忆卡（含被取代历史链）"
+expect "$(api POST "/api/companion/sessions/$SESS_ID/summarize" "$T2")" 403 "非带班老师触发他人会话总结被拒"
+expect "$(api GET "/api/companion/memory/retrieve?q=test" "$T2")" 403 "非带班老师取回他人记忆被拒"
+
+echo ""
 echo "========== RESULT: $PASS passed, $FAIL failed =========="
 [ "$FAIL" -eq 0 ]

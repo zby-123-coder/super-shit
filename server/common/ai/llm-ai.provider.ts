@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type {
   AiProvider,
+  CompanionMemorySummaryInput,
+  CompanionMemorySummaryResult,
   CompanionReplyInput,
   CompanionReplyResult,
   InsightInput,
@@ -459,6 +461,66 @@ export class LlmAiProvider implements AiProvider {
       };
     } catch {
       throw new Error('客服回答输出无法解析（JSON 断裂）');
+    }
+  }
+
+  /**
+   * 影子 agent：总结对话 → 记忆操作。
+   * temperature 0.1（结构化输出要稳定）；不设 max_tokens（DeepSeek 思考先吃 token，
+   * 截断会让 JSON 断裂 → 解析失败 → 降级规则版）。
+   */
+  async companionMemorySummary(input: CompanionMemorySummaryInput): Promise<CompanionMemorySummaryResult> {
+    const transcriptLines = input.transcripts
+      .map((m) => `${m.role === 'user' ? '学生' : '小引'}：${m.content}`)
+      .join('\n');
+    const memoryLines = input.existingMemories.length > 0
+      ? input.existingMemories
+          .map((m) => `[${m.id}]（${m.kind}，重要度${m.importance}）${m.content}`)
+          .join('\n')
+      : '（暂无）';
+    const { content, usage } = await this.postChat(
+      '你是学习陪伴系统的「影子记忆员」，学生和小引看不到你。你的任务：从一段辅导对话中总结出值得长期记住的学生特征，' +
+        '输出成记忆操作。要求：' +
+        '1. 只记稳定/有教育价值的特征：学习偏好（喜欢先自己想还是先要提示）、沟通风格（吃鼓励还是吃直接）、' +
+        '薄弱知识点、理解速度（一点就通/需要多遍）、本次学习进展（讲了什么题、掌握到什么程度）；' +
+        '2. 每条记忆一句话，具体可执行，不写"表现不错"这种空话；' +
+        '3. 新特征用 action=add；与现有记忆矛盾或显著演进（如偏好变了、薄弱点已攻克）用 action=update 并带上 targetId；' +
+        '4. 没有值得记的就输出空数组，不要硬凑；' +
+        '5. kind 只能取 weakness/preference/style/progress/fact；importance 1-5（影响沟通方式的记 5，一般事实记 2-3）。' +
+        '严格输出 JSON：{"ops":[{"action":"add","kind":"preference","content":"...","importance":3,"reason":"..."}]}' +
+        '（update 时多一个 "targetId":"现有记忆id" 字段）',
+      `学生：${input.studentName}（当前辅导阶段：${input.stage}）\n\n` +
+        `【对话记录】\n${transcriptLines}\n\n` +
+        `【该生现有记忆（update 的 targetId 只能从这里选）】\n${memoryLines}`,
+      { temperature: 0.1 },
+    );
+    const start = content.indexOf('{');
+    const end = content.lastIndexOf('}');
+    if (start < 0 || end <= start) {
+      throw new Error('影子记忆员输出无法解析（无 JSON 正文）');
+    }
+    try {
+      const parsed = JSON.parse(content.slice(start, end + 1)) as {
+        ops?: {
+          action?: string;
+          targetId?: string;
+          kind?: string;
+          content?: string;
+          importance?: number;
+          reason?: string;
+        }[];
+      };
+      const ops = (parsed.ops ?? []).map((op) => ({
+        action: op.action === 'update' ? ('update' as const) : ('add' as const),
+        ...(op.targetId ? { targetId: String(op.targetId) } : {}),
+        kind: String(op.kind ?? 'fact'),
+        content: String(op.content ?? ''),
+        importance: Number(op.importance ?? 3),
+        ...(op.reason ? { reason: String(op.reason) } : {}),
+      }));
+      return { available: true, ops, usage };
+    } catch {
+      throw new Error('影子记忆员输出无法解析（JSON 断裂）');
     }
   }
 

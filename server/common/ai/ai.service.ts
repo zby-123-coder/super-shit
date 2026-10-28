@@ -3,6 +3,8 @@ import { LlmAiProvider } from './llm-ai.provider';
 import { RuleAiProvider } from './rule-ai.provider';
 import type {
   AiProvider,
+  CompanionMemorySummaryInput,
+  CompanionMemorySummaryResult,
   CompanionReplyInput,
   CompanionReplyResult,
   InsightInput,
@@ -130,6 +132,13 @@ export class AiService {
     return this.run(
       (p) => p.supportAnswer(input),
       (p) => p.supportAnswer(input),
+    );
+  }
+
+  companionMemorySummary(input: CompanionMemorySummaryInput): Promise<CompanionMemorySummaryResult> {
+    return this.run(
+      (p) => p.companionMemorySummary(input),
+      (p) => p.companionMemorySummary(input),
     );
   }
 }

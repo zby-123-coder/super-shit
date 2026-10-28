@@ -73,13 +73,15 @@ export const STAGE_LABEL: Record<CompanionStage, string> = {
   close: '收尾',
 };
 
-/** 生成 system prompt：人设 + 阶段指令 + 数据隔离声明 + 该学生记忆 */
+/** 生成 system prompt：人设 + 因材施教卡 + 阶段指令 + 数据隔离声明 + 该学生记忆。
+ *  每次调用都按「当前阶段 + 当前记忆」整段重建——轮转到新节点即自然替换 system prompt */
 export function buildSystemPrompt(
   persona: PersonaCard,
   stage: CompanionStage,
   studentName: string,
   question?: { title: string; knowledgePoint?: string; wrongReason?: string },
   memories?: { content: string; kind: string }[],
+  teachingCard?: { depth: string; lines: string[] },
 ): string {
   const stageInfo = persona.stageFlow.find((item) => item.stage === stage) ?? persona.stageFlow[0];
   const lines: string[] = [];
@@ -89,6 +91,13 @@ export function buildSystemPrompt(
   lines.push('【语气要求】');
   for (const tone of persona.tone) lines.push(`- ${tone}`);
   lines.push('');
+  if (teachingCard && teachingCard.lines.length > 0) {
+    // 因材施教卡：随该生的记忆演进（影子 agent 更新偏好/风格记忆后，下一句就生效），
+    // 优先级高于默认语气要求
+    lines.push(`【因材施教卡（按该学生定制，节奏基调：${teachingCard.depth}）】`);
+    for (const line of teachingCard.lines) lines.push(`- ${line}`);
+    lines.push('');
+  }
   lines.push('【教学原则（最高优先级）】');
   for (const principle of persona.principles) lines.push(`- ${principle}`);
   lines.push('');

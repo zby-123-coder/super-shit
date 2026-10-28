@@ -1,5 +1,7 @@
 import type {
   AiProvider,
+  CompanionMemorySummaryInput,
+  CompanionMemorySummaryResult,
   CompanionReplyInput,
   CompanionReplyResult,
   InsightInput,
@@ -214,6 +216,15 @@ export class RuleAiProvider implements AiProvider {
       reply: scripts[targetStage] ?? scripts.understand,
       nextStage: shouldAdvance ? targetStage : null,
     };
+  }
+
+  /**
+   * 规则版影子记忆员：诚实缺位（available=false，不做任何记忆操作）。
+   * 从对话文本里"猜"特征必然编造——宁可没有记忆，也不写假的。
+   * 规则侧的记忆补充由 CompanionService.refreshMemory（错题统计）承担。
+   */
+  async companionMemorySummary(_input: CompanionMemorySummaryInput): Promise<CompanionMemorySummaryResult> {
+    return { available: false, ops: [] };
   }
 
   /**

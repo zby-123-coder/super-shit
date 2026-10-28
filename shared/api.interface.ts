@@ -194,6 +194,23 @@ export interface CompanionMemoryDTO {
   kind: string;
   content: string;
   importance: number;
+  /** shadow 影子 agent 总结 / rule 规则提炼 */
+  source: string;
+  /** active 生效 / superseded 被更新取代（记忆时间链） */
+  status: string;
+  supersededBy: string | null;
+  hits: number;
+  updatedAt: string;
+}
+
+/** 记忆 RAG 取回结果（相关性 × 重要度 × 时间衰减的综合得分，调试/评测可回指） */
+export interface CompanionMemoryRetrievedDTO {
+  id: string;
+  kind: string;
+  content: string;
+  importance: number;
+  /** 综合得分 = 0.5×词面相关 + 0.3×重要度 + 0.2×时间衰减 */
+  score: number;
   updatedAt: string;
 }
 

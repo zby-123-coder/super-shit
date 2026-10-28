@@ -204,6 +204,38 @@ export interface SupportAnswerResult {
   usage?: { promptTokens?: number; completionTokens?: number; totalTokens?: number };
 }
 
+/** 影子 agent 记忆总结输入：一段对话 + 该生现有记忆（影子 agent 据此判断新增/更新/冲突） */
+export interface CompanionMemorySummaryInput {
+  studentName: string;
+  stage: string;
+  /** 本会话消息（role: user/assistant，时间正序） */
+  transcripts: { role: string; content: string }[];
+  /** 该生现有生效记忆（影子 agent 只能更新这个集合内的条目） */
+  existingMemories: { id: string; kind: string; content: string; importance: number }[];
+}
+
+/** 一条记忆变更操作：add 新增 / update 更新既有条目（旧条被取代，时间新者胜） */
+export interface CompanionMemoryOp {
+  action: 'add' | 'update';
+  /** action=update 时必填：要更新的现有记忆 id */
+  targetId?: string;
+  /** weakness/preference/style/progress/fact（服务端白名单校验，非法丢弃） */
+  kind: string;
+  /** 一句话记忆（服务端截断 500） */
+  content: string;
+  /** 重要度 1-5 */
+  importance: number;
+  /** 影子 agent 的理由（落库排查用，不进 prompt） */
+  reason?: string;
+}
+
+export interface CompanionMemorySummaryResult {
+  /** false = 规则版（影子 agent 缺位，ops 为空——规则提炼 refreshMemory 仍在跑） */
+  available: boolean;
+  ops: CompanionMemoryOp[];
+  usage?: { promptTokens?: number; completionTokens?: number; totalTokens?: number };
+}
+
 export interface AiProvider {
   /** 提供方名称，用于日志与排查 */
   readonly name: string;
@@ -237,4 +269,7 @@ export interface AiProvider {
 
   /** 智能客服：问题 + 检索条目 → 受约束回答（只依据条目、库外拒答、必须带来源） */
   supportAnswer(input: SupportAnswerInput): Promise<SupportAnswerResult>;
+
+  /** 影子 agent：总结对话 → 记忆新增/更新操作（冲突由服务端固定规则裁决落库） */
+  companionMemorySummary(input: CompanionMemorySummaryInput): Promise<CompanionMemorySummaryResult>;
 }

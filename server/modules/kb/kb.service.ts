@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, ilike, or, sql, type SQL } from 'drizzle-orm';
 import { DRIZZLE_DATABASE, type PostgresJsDatabase } from '@server/common/drizzle';
+import { bigrams, coverage } from '@server/common/text/bigrams';
 import { educationKb } from '@server/database/schema';
 
 export interface KbSearchInput {
@@ -43,25 +44,6 @@ export interface KbRagInput {
 export interface KbRagEntry extends KbEntry {
   /** 2-gram 检索得分（0-1，查询侧 bigram 覆盖率），客服据此判断"够不够答" */
   score: number;
-}
-
-/** 中文 2-gram：相邻字符对（剔除空白与标点）。中文没有空格分词，bigram 是零依赖的最强字面信号；
- *  标点（全角？/：/、等）不承载词面信息，留在查询里会稀释覆盖率——
- *  实测同一问句带不带结尾「？」分差 0.0067，曾把边界条目从应答打成拒答。 */
-function bigrams(text: string): Set<string> {
-  const t = text.replace(/[\s\p{P}\p{S}]+/gu, '');
-  const grams = new Set<string>();
-  for (let i = 0; i < t.length - 1; i += 1) grams.add(t.slice(i, i + 2));
-  return grams;
-}
-
-/** 查询侧覆盖率：查询 bigram 被条目文本覆盖的比例 */
-function coverage(queryGrams: Set<string>, text: string): number {
-  if (queryGrams.size === 0) return 0;
-  const doc = bigrams(text);
-  let hit = 0;
-  for (const g of queryGrams) if (doc.has(g)) hit += 1;
-  return hit / queryGrams.size;
 }
 
 /** 打分：标题+问法 0.55 / 正文 0.25 / 关键词命中 0.2（关键词是精确子串，信号最强） */

@@ -631,8 +631,15 @@ export const aiMemory = pgTable("ai_memory", {
   content: varchar("content", { length: 500 }).notNull(),
   /** 重要度 1-5，注入 prompt 时取最高的几条 */
   importance: integer("importance").notNull().default(3),
+  /** rule 规则提炼 / shadow 影子 agent 总结 */
   source: varchar("source", { length: 64 }),
   hits: integer("hits").notNull().default(0),
+  /** active 生效 / superseded 被更新记忆取代（冲突 merge 后保留旧值可回溯） */
+  status: varchar("status", { length: 16 }).notNull().default('active'),
+  /** 取代本条的新记忆 id（status=superseded 时指向，构成时间链：旧→新） */
+  supersededBy: uuid("superseded_by"),
+  /** 产出本条记忆的会话（影子 agent 溯源：哪次对话总结出来的） */
+  sourceSessionId: uuid("source_session_id"),
   createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: customTimestamptz("_updated_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [
