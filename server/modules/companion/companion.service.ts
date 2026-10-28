@@ -11,7 +11,7 @@ import { aiMemory, aiMessage, aiSession, appProfile, wrongQuestion } from '@serv
 import { AiService } from '@server/common/ai/ai.service';
 import { AiInvocationService } from '../ai/ai-invocation.service';
 import { AccountService } from '../account/account.service';
-import { CompanionMemoryService, SUMMARY_EVERY_N_USER_MSGS } from './companion-memory.service';
+import { CompanionMemoryService } from './companion-memory.service';
 import {
   GUIDE_PERSONA,
   STAGE_LABEL,
@@ -198,8 +198,8 @@ export class CompanionService {
     const session = inserted[0];
 
     const name = await this.studentName(target);
-    // 记忆注入：以本题/主题为查询做 RAG 取回 + 因材施教卡（开场即带画像）
-    const context = await this.memoryService.contextFor(target, questionInfo?.title ?? topic);
+    // 记忆注入：段锚点（题目标题/主题）取回 + 因材施教卡——顺带写入段缓存，首条 send 直接复用
+    const context = await this.memoryService.contextForSession(session, questionInfo?.title ?? topic);
     const systemPrompt = buildSystemPrompt(
       GUIDE_PERSONA,
       'understand',
@@ -372,12 +372,12 @@ export class CompanionService {
       .orderBy(asc(aiMessage.createdAt))
       .limit(40);
 
-    // 影子记忆员·懒触发 a)：会话沉默 ≥30min = 上一段学习已结束，
-    // 先同步总结出最新画像，再继续本轮对话（新鲜记忆直接参与本次回复）。
+    // 影子记忆员·懒触发：会话沉默 ≥30min = 上一段学习已结束 → 异步总结，
+    // 与本次回复并行跑（不阻塞），总结出的记忆让下一段对话更好用——
+    // 调整节点在非对话时期，对话段内上下文保持稳定。
     // 骑在用户消息请求上，绝不搞定时器自动调 AI。
     if (await this.memoryService.shouldSummarizeForSilence(sessionId)) {
-      const applied = await this.memoryService.summarizeSession(session, userId);
-      this.logger.log(`沉默触发影子总结：session=${sessionId} applied=${applied}`);
+      void this.memoryService.summarizeSession(session, userId);
     }
 
     // 落库学生消息
@@ -404,8 +404,12 @@ export class CompanionService {
     }
 
     const stage = session.stage as CompanionStage;
-    // 记忆注入：RAG 取回（当前发言相关 × 重要度 × 时间衰减）+ 因材施教卡（仅本人）
-    const context = await this.memoryService.contextFor(session.studentUserId, content);
+    // 记忆注入：段内复用缓存（段首已建，这里零查询）；逐 send 重建的只有
+    // system prompt 的阶段块——纯字符串拼接，无 DB/LLM 开销
+    const context = await this.memoryService.contextForSession(
+      session,
+      questionInfo?.title ?? session.topic,
+    );
     const systemPrompt = buildSystemPrompt(
       GUIDE_PERSONA,
       stage,
@@ -482,9 +486,9 @@ export class CompanionService {
     );
     await this.refreshMemory(session.studentUserId);
 
-    // 影子记忆员·懒触发 b)：每满 N 条学生发言 / 会话刚收尾 → 回复后异步总结（不阻塞返回）
-    const userTurns = history.filter((m) => m.role === 'user').length + 1;
-    if (nextStage === 'close' || userTurns % SUMMARY_EVERY_N_USER_MSGS === 0) {
+    // 影子记忆员·懒触发：会话收尾 → 异步总结一次（频次 ≈ 每段对话 1 次，
+    // 不阻塞返回；沉默 ≥30min 是另一个触发点，见上方）
+    if (nextStage === 'close') {
       void this.memoryService.summarizeSession(updated[0], userId);
     }
 

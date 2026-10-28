@@ -14,15 +14,16 @@ interface SessionRowLike {
   stage: string;
 }
 
-/** 会话沉默达 30 分钟视为一段学习结束 → 下次发言时先触发影子总结。
+/** 会话沉默达 30 分钟视为一段学习结束 → 下次发言时触发影子总结（异步并行，为下一段对话准备）。
  *  懒触发（骑在用户消息请求上，不搞定时器）——符合「绝不自动调 AI」铁律 */
 const SILENCE_TRIGGER_MS = 30 * 60 * 1000;
-/** 会话内每满 N 条学生发言触发一次影子总结（回复完成后异步跑，不阻塞） */
-export const SUMMARY_EVERY_N_USER_MSGS = 6;
 /** 注入 prompt 的记忆条数 */
 export const RETRIEVE_LIMIT = 5;
 /** 时间衰减半衰期（天）：7 天没被更新的记忆，时间权重减半 */
 const HALF_LIFE_DAYS = 7;
+/** 会话上下文缓存有效期：超过即视为进入新的对话段，重建（与沉默阈值对齐——
+ *  段内对话保持稳定，调整只发生在段之间的非对话时期） */
+const CONTEXT_TTL_MS = 30 * 60 * 1000;
 
 const MEMORY_KINDS = new Set(['weakness', 'preference', 'style', 'progress', 'fact']);
 
@@ -110,20 +111,26 @@ export function deriveCardFromMemories(
 /**
  * 小引影子记忆员（跨会话长期记忆）。
  *
- * 设计（对应需求：30min/轮次触发总结 → RAG 取回重排 → 固定规则裁决冲突）：
- *   1. 触发全部懒触发、骑在用户消息请求上（绝不自动调 AI）：
- *      沉默 ≥30min → send 前同步总结（新一段学习的开始，新鲜画像直接参与本次回复）；
- *      每满 6 条学生发言 / 会话收尾 → 回复后异步总结
- *   2. 影子 agent（LLM）只提「操作建议」，落库由固定规则裁决：
+ * 设计（调整节点在 session 之后的非对话时期，对话段内保持稳定）：
+ *   1. 影子总结触发点只有两个（≈每段对话至多 1-2 次 LLM 调用，异步并行不阻塞回复）：
+ *      会话收尾一次；沉默 ≥30min 后下次发言时一次。总结出的记忆「让下一次对话更好用」
+ *   2. 上下文（取回记忆+因材施教卡）按会话段缓存：段首算一次，段内所有 send 复用——
+ *      每次重建的只有阶段块（纯字符串拼接）。影子总结落库后失效缓存，下一段生效
+ *   3. 影子 agent（LLM）只提「操作建议」，落库由固定规则裁决：
  *      update = 时间新者胜（旧条 superseded 指向新条，可回溯时间链）；
  *      add 撞内容唯一约束 = 同一事实再确认（刷 updatedAt/importance，不膨胀）
- *   3. 取回 = bigram 词面相关 × 重要度 × 时间衰减 + 画像常驻保底；
+ *   4. 取回 = bigram 词面相关 × 重要度 × 时间衰减 + 画像常驻保底；
  *      「之前讲过的题」靠 progress/fact 记忆的题面 bigram 自然命中
- *   4. 数据隔离：所有读写都带 studentUserId 条件（与方法参数强绑定）
+ *   5. 数据隔离：所有读写都带 studentUserId 条件（与方法参数强绑定）
  */
 @Injectable()
 export class CompanionMemoryService {
   private readonly logger = new Logger(CompanionMemoryService.name);
+  /** 会话段上下文缓存（段首构建、段内复用；影子总结落库后失效） */
+  private readonly contextCache = new Map<
+    string,
+    { memories: RetrievedMemory[]; card: TeachingCard; cachedAt: number }
+  >();
 
   constructor(
     @Inject(DRIZZLE_DATABASE) private readonly db: PostgresJsDatabase,
@@ -165,6 +172,31 @@ export class CompanionMemoryService {
       memories: rankMemories(rows, query, RETRIEVE_LIMIT),
       card: deriveCardFromMemories(rows),
     };
+  }
+
+  /**
+   * 会话段上下文（带缓存）：段首算一次（start / 沉默后的首条消息），段内所有 send 复用。
+   * 段锚点 = 绑定的题目标题 / 会话主题（会话按题绑定是主场景，单段单话题，
+   * 按消息逐条重取回只会白烧查询——相关性的粒度应该是「段」不是「句」）。
+   * TTL 过期或影子总结落库后失效，下一段对话用上最新画像。
+   */
+  async contextForSession(
+    session: SessionRowLike,
+    query: string,
+  ): Promise<{ memories: RetrievedMemory[]; card: TeachingCard }> {
+    const hit = this.contextCache.get(session.id);
+    if (hit && Date.now() - hit.cachedAt < CONTEXT_TTL_MS) return hit;
+    const context = await this.contextFor(session.studentUserId, query);
+    this.contextCache.set(session.id, { ...context, cachedAt: Date.now() });
+    this.pruneContextCache();
+    return context;
+  }
+
+  /** 缓存有界：超 200 个会话段时淘汰最旧的一半（防长驻进程缓慢泄漏） */
+  private pruneContextCache(): void {
+    if (this.contextCache.size <= 200) return;
+    const entries = [...this.contextCache.entries()].sort((a, b) => a[1].cachedAt - b[1].cachedAt);
+    for (const [id] of entries.slice(0, entries.length - 100)) this.contextCache.delete(id);
   }
 
   /** 记忆卡读取（前端展示；默认只给 active，includeSuperseded=true 时带被取代的历史链） */
@@ -227,6 +259,8 @@ export class CompanionMemoryService {
         })),
       });
       const applied = await this.applyOps(session.studentUserId, result.ops, session.id);
+      // 有新记忆落库 → 失效该会话段的上下文缓存（下一段对话用上最新画像）
+      if (applied > 0) this.contextCache.delete(session.id);
       // 每次影子调用留痕（铁律），归属触发人；ops 全文进 result_full 供回看
       if (triggeredBy) {
         await this.invocationService.record(
