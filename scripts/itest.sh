@@ -182,6 +182,12 @@ SESS=$(api POST /api/companion/start "$S1" '{"studentUserId":"'"$S1_ID"'"}')
 expect "$SESS" 201 "开启陪练会话（记忆链路）"
 SESS_ID=$(echo "$SESS" | sed 's/ \[[0-9]*\]$//' | python3 -c "import sys,json;print(json.load(sys.stdin).get('session',{}).get('id',''))" 2>/dev/null)
 expect "$(api POST "/api/companion/sessions/$SESS_ID/messages" "$S1" '{"content":"我在含参最值问题上总卡住，我喜欢先自己想一会儿再要提示"}')" 201 "发送消息（含偏好自述）"
+expect "$(api POST "/api/companion/sessions/$SESS_ID/messages" "$S1" '{"content":"为什么"}')" 201 "浅层提问1"
+expect "$(api POST "/api/companion/sessions/$SESS_ID/messages" "$S1" '{"content":"然后呢"}')" 201 "浅层提问2"
+expect "$(api POST "/api/companion/sessions/$SESS_ID/messages" "$S1" '{"content":"继续"}')" 201 "浅层提问3"
+MODLOG=$(api GET "/api/ai/logs?feature=companion&limit=1" "$S1")
+if echo "$MODLOG" | grep -q 'personaMode.*deepen'; then PASS=$((PASS+1)); echo "  OK 连续浅层提问触发深化调制 [deepen]";
+else FAIL=$((FAIL+1)); echo "  FAIL 深化调制未触发: $(echo "$MODLOG" | head -c 120)"; fi
 expect "$(api POST "/api/companion/sessions/$SESS_ID/summarize" "$S1")" 201 "手动触发影子总结（本人会话）"
 expect "$(api GET "/api/companion/memory/retrieve?q=%E5%90%AB%E5%8F%82%E6%9C%80%E5%80%BC" "$S1")" 200 "记忆 RAG 取回（带得分）"
 expect "$(api GET "/api/companion/memory?includeSuperseded=true" "$S1")" 200 "记忆卡（含被取代历史链）"

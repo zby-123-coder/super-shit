@@ -73,7 +73,62 @@ export const STAGE_LABEL: Record<CompanionStage, string> = {
   close: '收尾',
 };
 
-/** 生成 system prompt：人设 + 因材施教卡 + 阶段指令 + 数据隔离声明 + 该学生记忆。
+/** 实时教学策略调制（规则识别学生最近发言，零 LLM 开销）。
+ *  性格卡片是基线（如「循循善诱的逗比老师」），调制是相对基线的临时偏移，
+ *  会话结束自然失效——不是改卡片，是此刻该怎么带这个学生 */
+export interface PersonaModulation {
+  mode: 'default' | 'deepen';
+  /** 注入 prompt 的调制指令（default 为空数组） */
+  instructions: string[];
+}
+
+/** 浅层发言识别：过短/纯语气词/只要答案不要过程（标点剥离后 ≤4 字一律算浅层） */
+function isShallowMessage(raw: string): boolean {
+  const t = raw.replace(/[\s\p{P}\p{S}]+/gu, '');
+  if (t.length <= 4) return true;
+  if (
+    /^(嗯+|哦+|噢+|好的?|行|继续|然后呢?|为什么|为啥|不会|不懂|听不懂|还是不会|怎么办|再讲一遍|再说一遍|不知道|没有|接着讲)$/.test(
+      t,
+    )
+  ) {
+    return true;
+  }
+  // 要答案不要过程（短句内出现"直接给答案"类诉求）
+  if (
+    /直接(给|告诉).{0,6}答案|答案到底是什么|告诉我(最终)?(结果|答案)/.test(raw) &&
+    t.length <= 20
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * 从学生最近发言推导 persona 调制：
+ * 最近 4 条学生发言里 ≥3 条浅层（如「然后呢」「不会」「直接给答案」）→ deepen——
+ * 收起轻松语气、在提示词里明确要求深化：不再顺着浅层问题往下答，
+ * 转而要求学生说出自己理解到哪一步。学生一旦给出实质内容自动回 default（自愈，
+ * 无状态纯函数，每次 send 从最近发言窗口现算）。
+ */
+export function derivePersonaModulation(recentUserMessages: string[]): PersonaModulation {
+  const window = recentUserMessages.slice(-4);
+  if (window.length < 3) return { mode: 'default', instructions: [] };
+  const shallow = window.filter(isShallowMessage).length;
+  if (shallow < 3) return { mode: 'default', instructions: [] };
+  return {
+    mode: 'deepen',
+    instructions: [
+      '【实时教学策略调整：深化引导】',
+      '该学生最近连续多轮停留在浅层提问（"然后呢""不会""直接给答案"类），没有展开自己的思考。',
+      '从现在起收起轻松/玩笑语气，转入深化引导：不要顺着浅层问题往下答，',
+      '改为提出一个需要学生动脑的具体小问题（引用题目里的具体条件），',
+      '先要求学生说出"你现在理解到哪一步、卡在哪一步"，再继续往下讲。',
+      '若学生坚持只要答案，温和坚持："先告诉我你是怎么想的，哪怕只说第一步"。',
+    ],
+  };
+}
+
+/** 生成 system prompt：人设 + 因材施教卡 + 实时调制 + 阶段指令 + 数据隔离声明 + 该学生记忆。
  *  每次调用都按「当前阶段 + 当前记忆」整段重建——轮转到新节点即自然替换 system prompt */
 export function buildSystemPrompt(
   persona: PersonaCard,
@@ -82,6 +137,7 @@ export function buildSystemPrompt(
   question?: { title: string; knowledgePoint?: string; wrongReason?: string },
   memories?: { content: string; kind: string }[],
   teachingCard?: { depth: string; lines: string[] },
+  modulation?: PersonaModulation,
 ): string {
   const stageInfo = persona.stageFlow.find((item) => item.stage === stage) ?? persona.stageFlow[0];
   const lines: string[] = [];
@@ -96,6 +152,11 @@ export function buildSystemPrompt(
     // 优先级高于默认语气要求
     lines.push(`【因材施教卡（按该学生定制，节奏基调：${teachingCard.depth}）】`);
     for (const line of teachingCard.lines) lines.push(`- ${line}`);
+    lines.push('');
+  }
+  if (modulation && modulation.instructions.length > 0) {
+    // 实时调制：优先级高于因材施教卡与默认语气——学生行为信号（连续浅层提问）触发的临时策略偏移
+    for (const line of modulation.instructions) lines.push(line);
     lines.push('');
   }
   lines.push('【教学原则（最高优先级）】');

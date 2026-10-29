@@ -16,6 +16,7 @@ import {
   GUIDE_PERSONA,
   STAGE_LABEL,
   buildSystemPrompt,
+  derivePersonaModulation,
   type CompanionStage,
 } from './persona';
 
@@ -410,6 +411,14 @@ export class CompanionService {
       session,
       questionInfo?.title ?? session.topic,
     );
+    // 实时 persona 调制（规则识别最近发言窗口，零 LLM 开销）：
+    // 连续浅层提问（"然后呢""不会""直接给答案"）→ 收起轻松语气转深化引导；
+    // 学生给出实质内容自动回默认（自愈）。性格卡片是基线，调制是临时偏移。
+    const recentUserMessages = [
+      ...history.filter((m) => m.role === 'user').map((m) => m.content),
+      content,
+    ];
+    const modulation = derivePersonaModulation(recentUserMessages);
     const systemPrompt = buildSystemPrompt(
       GUIDE_PERSONA,
       stage,
@@ -417,6 +426,7 @@ export class CompanionService {
       questionInfo,
       context.memories.map((m) => ({ content: m.content, kind: m.kind })),
       context.card,
+      modulation,
     );
     const started = Date.now();
     // 注意：对话不做服务端内容去重（学生可能合法地重复表达），
@@ -481,6 +491,7 @@ export class CompanionService {
           stage: nextStage,
           cardDepth: context.card.depth,
           memoriesUsed: context.memories.map((m) => `${m.kind}:${m.content.slice(0, 40)}`),
+          personaMode: modulation.mode,
         },
       },
     );
